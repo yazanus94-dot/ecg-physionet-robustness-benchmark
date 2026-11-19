@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite it using the metadata below
+  (and the PhysioNet MITDB/NSTDB databases as applicable).
+title: ecg-physionet-robustness-benchmark
+type: software
+version: 1.0.0
+description: >-
+  ECG-ROBUST — patient-independent ECG arrhythmia classification and
+  noise-robustness benchmark (AAMI N/S/V/F/Q) on the official PhysioNet
+  MIT-BIH Arrhythmia and Noise Stress Test Databases.
+repository: https://github.com/yazanus94-dot/ecg-physionet-robustness-benchmark
+url: https://github.com/yazanus94-dot/ecg-physionet-robustness-benchmark
+license: MIT
+authors:
+  - name: ECG-ROBUST contributors
+keywords:
+  - ecg
+  - arrhythmia-classification
+  - physionet
+  - mitdb
+  - nstdb
+  - noise-robustness
+  - aami
+  - benchmark

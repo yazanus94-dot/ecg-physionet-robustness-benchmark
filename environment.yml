@@ -1,0 +1,19 @@
+[environment]
+name: ecg-robust
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - scipy
+  - pandas
+  - matplotlib
+  - seaborn
+  - scikit-learn
+  - wfdb
+  - pytest
+  - pyyaml
+  - joblib
+  - pip
+  - pip:
+      - -r requirements.txt

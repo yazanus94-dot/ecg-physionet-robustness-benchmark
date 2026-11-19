@@ -1,0 +1,4 @@
+# Raw PhysioNet MITDB/NSTDB downloads are never committed (licensing/attribution).
+# The pipeline downloads them into data/raw/ on first run.
+*
+!.gitignore

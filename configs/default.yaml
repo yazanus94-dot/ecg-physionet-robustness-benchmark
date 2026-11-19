@@ -1,0 +1,40 @@
+# ECG-ROBUST — default configuration.
+# Matches the pipeline constants; override by editing this file and rerunning
+# `python -m ecg_robust.pipeline`.
+
+fs: 360                      # MITDB sampling frequency (Hz)
+n_splits: 5                  # patient-independent folds
+random_state: 42
+
+# Subject groups: recordings 201 and 202 belong to the same subject.
+subject_groups:
+  "201": "201+202"
+  "202": "201+202"
+
+# Segmentation window: [r_i - 0.25*fs, r_i + 0.45*fs]
+segmentation:
+  before_s: 0.25
+  after_s: 0.45
+  min_length: 3
+
+# Preprocessing: 4th-order Butterworth, 0.5–40 Hz, forward-backward.
+preprocessing:
+  low_hz: 0.5
+  high_hz: 40.0
+  order: 4
+
+models:
+  dummy:
+    strategy: most_frequent
+  random_forest:
+    n_estimators: 100
+    class_weight: balanced
+  svm_rbf:
+    C: 1.0
+    class_weight: balanced
+
+noise:
+  snr_db: [24.0, 18.0, 12.0, 6.0, 0.0, -6.0]   # target SNR levels
+  n_noise_realizations: 8                        # NSTDB noise realizations
+
+classes: [N, S, V, F, Q]

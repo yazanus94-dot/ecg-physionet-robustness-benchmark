@@ -1,0 +1,242 @@
+[
+  {
+    "record": "118e00",
+    "n_segments": 2301,
+    "n_samples": 650000,
+    "fs": 360,
+    "segment_lengths_head": [
+      175,
+      230,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252
+    ]
+  },
+  {
+    "record": "118e06",
+    "n_segments": 2301,
+    "n_samples": 650000,
+    "fs": 360,
+    "segment_lengths_head": [
+      175,
+      230,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252
+    ]
+  },
+  {
+    "record": "118e12",
+    "n_segments": 2301,
+    "n_samples": 650000,
+    "fs": 360,
+    "segment_lengths_head": [
+      175,
+      230,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252
+    ]
+  },
+  {
+    "record": "118e18",
+    "n_segments": 2301,
+    "n_samples": 650000,
+    "fs": 360,
+    "segment_lengths_head": [
+      175,
+      230,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252
+    ]
+  },
+  {
+    "record": "118e24",
+    "n_segments": 2301,
+    "n_samples": 650000,
+    "fs": 360,
+    "segment_lengths_head": [
+      175,
+      230,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252
+    ]
+  },
+  {
+    "record": "118e_6",
+    "n_segments": 2301,
+    "n_samples": 650000,
+    "fs": 360,
+    "segment_lengths_head": [
+      175,
+      230,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252
+    ]
+  },
+  {
+    "record": "119e00",
+    "n_segments": 2094,
+    "n_samples": 650000,
+    "fs": 360,
+    "segment_lengths_head": [
+      194,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252
+    ]
+  },
+  {
+    "record": "119e06",
+    "n_segments": 2094,
+    "n_samples": 650000,
+    "fs": 360,
+    "segment_lengths_head": [
+      194,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252
+    ]
+  },
+  {
+    "record": "119e12",
+    "n_segments": 2094,
+    "n_samples": 650000,
+    "fs": 360,
+    "segment_lengths_head": [
+      194,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252
+    ]
+  },
+  {
+    "record": "119e18",
+    "n_segments": 2094,
+    "n_samples": 650000,
+    "fs": 360,
+    "segment_lengths_head": [
+      194,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252
+    ]
+  },
+  {
+    "record": "119e24",
+    "n_segments": 2094,
+    "n_samples": 650000,
+    "fs": 360,
+    "segment_lengths_head": [
+      194,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252
+    ]
+  },
+  {
+    "record": "119e_6",
+    "n_segments": 2094,
+    "n_samples": 650000,
+    "fs": 360,
+    "segment_lengths_head": [
+      194,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252
+    ]
+  },
+  {
+    "record": "bw",
+    "n_segments": 2193,
+    "n_samples": 650000,
+    "fs": 360,
+    "segment_lengths_head": [
+      166,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252
+    ]
+  },
+  {
+    "record": "em",
+    "n_segments": 1989,
+    "n_samples": 650000,
+    "fs": 360,
+    "segment_lengths_head": [
+      252,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252
+    ]
+  },
+  {
+    "record": "ma",
+    "n_segments": 2276,
+    "n_samples": 650000,
+    "fs": 360,
+    "segment_lengths_head": [
+      252,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252,
+      252
+    ]
+  }
+]
