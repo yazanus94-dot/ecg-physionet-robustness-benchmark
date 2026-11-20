@@ -18,6 +18,16 @@ All numbers below are ACTUAL, measured on the data in this repository
 (`python -m ecg_robust.pipeline`, seeds 42). Sources:
 [`reports/results/`](reports/results/), [`reports/TECHNICAL_REPORT.md`](reports/TECHNICAL_REPORT.md).
 
+Method points (spec-corrections, see the technical report):
+- **Out-of-fold**: every primary metric is computed from out-of-fold
+  predictions — each model is fitted on its training folds only (spec #3).
+- **No preprocessing leakage**: per-fold median imputation + scaling are
+  fitted inside the sklearn pipeline on training folds (spec #4).
+- **Annotation/segment alignment** is explicit (spec #1).
+- **Reserved records**: final models for the recorded-noise evaluation exclude
+  the reserved records 118/119 (spec #3); CV folds use all recording groups
+  (patient-independent).
+
 ### Dataset summary (measured)
 
 - MIT-BIH Arrhythmia Database (48 records, fs = 360 Hz); NSTDB (15 records:
@@ -30,43 +40,50 @@ All numbers below are ACTUAL, measured on the data in this repository
 - Annotations excluded (known MITDB symbols not in the AAMI map): 2,704;
   unknown codes: 449.
 
-### 5-fold patient-independent CV (actual)
+### 5-fold patient-independent CV (actual, out-of-fold)
 
 Mean over the five folds (`reports/results/cv_metrics.csv`):
 
 | Model | Accuracy | Precision (macro) | Recall (macro) | Sensitivity (macro) | Specificity (macro) | F1 (macro) | F1 (weighted) | Balanced Accuracy |
 |---|---|---|---|---|---|---|---|---|
 | dummy | 0.1149 | 0.0230 | 0.1600 | 0.1600 | 0.8000 | 0.0399 | 0.0302 | 0.1600 |
-| random_forest | 0.3067 | 0.3104 | 0.2844 | 0.2844 | 0.8267 | 0.2420 | 0.2659 | 0.2981 |
-| svm_rbf | 0.3031 | 0.3091 | 0.2740 | 0.2740 | 0.8249 | 0.2562 | 0.2975 | 0.2881 |
+| random_forest | 0.4404 | 0.4653 | 0.4118 | 0.4118 | 0.8597 | 0.3522 | 0.3958 | 0.4339 |
+| svm_rbf | 0.4596 | 0.4651 | 0.4177 | 0.4177 | 0.8641 | 0.3837 | 0.4395 | 0.4381 |
 
-- Best CV accuracy: **0.3067** (random_forest).
+- Best CV accuracy: **0.4596** (svm_rbf).
+- CV bullet points: DummyClassifier (most_frequent): accuracy **0.1149**,
+  macro F1 0.0399; RandomForestClassifier: accuracy **0.4404**, macro F1
+  0.3522; RBF-SVM: accuracy **0.4596**, macro F1 0.3837.
 
-### Noise robustness, synthetic mixtures (actual)
+### Noise robustness, synthetic mixtures (actual, out-of-fold)
 
 NSTDB noise realizations added to the MITDB beats at the target SNR levels
 `{24, 18, 12, 6, 0, -6 dB}` (`SNR = 10*log10(P_signal/P_noise)`); mean over
-levels (`reports/results/noise_results.csv`):
+levels of the **out-of-fold** models scored on held-out validation beats
+(`reports/results/noise_results.csv`):
 
 | Model | Accuracy | Macro F1 | Macro Sensitivity | Balanced Accuracy |
 |---|---|---|---|---|
-| dummy | 0.2082 | 0.0689 | 0.200 | 0.200 |
-| random_forest | 0.2197 | 0.1027 | 0.211 | 0.211 |
-| svm_rbf | 0.2082 | 0.0689 | 0.200 | 0.200 |
+| dummy | 0.1149 | 0.0399 | 0.1600 | 0.1600 |
+| random_forest | 0.3312 | 0.2312 | 0.3092 | 0.3260 |
+| svm_rbf | 0.3519 | 0.2812 | 0.3325 | 0.3499 |
 
 ### Recorded-noise evaluation (actual; NSTDB-annotated beats)
 
-All 15 NSTDB records classified with the fitted models, evaluated against the
-record-matched annotations (`reports/results/nstdb_evaluation.csv`):
+All 15 NSTDB records classified with the final models (trained excluding the
+reserved records 118/119), evaluated against the NSTDB record annotations
+(`reports/results/nstdb_evaluation.csv`; mean per model):
 
 | Model | Accuracy | Macro F1 | Macro Sensitivity | Balanced Accuracy |
 |---|---|---|---|---|
-| dummy | 0.8637 | 0.1849 | 0.2000 | 0.4167 |
-| random_forest | 0.8287 | 0.2588 | 0.2719 | 0.5997 |
-| svm_rbf | 0.1152 | 0.0379 | 0.2000 | 0.4167 |
+| dummy | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| random_forest | 0.4820 | 0.1903 | 0.2336 | 0.5340 |
+| svm_rbf | 0.4221 | 0.1741 | 0.2212 | 0.5085 |
 
-(Mean metrics per model; the number of predicted vs. true beats is in the CSV.
-These are real recorded-noise numbers, not synthetic mixtures.)
+(These are real recorded-noise numbers, not synthetic mixtures. The dummy
+predicts the most frequent class of the final training data — Q — and the
+NSTDB stress records contain no paced (Q) beats, so its accuracy is 0.0;
+the true/predicted beat counts per record are in the CSV.)
 
 ## Project structure
 

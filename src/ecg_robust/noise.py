@@ -35,18 +35,16 @@ from .preprocessing import bandpass_filter
 SNRS_DB = [24.0, 18.0, 12.0, 6.0, 0.0, -6.0]
 
 
-def _align_features(X: pd.DataFrame, feature_columns, feature_defaults):
-    """Reindex ``X`` to the fitted ``feature_columns`` and fill NaN with
-    training defaults (``feature_defaults``, e.g. medians used at training
-    time). Keeps sklearn's feature-name check happy when re-extracting
-    features per-beat (``rr_s``/``rr_ratio`` are absent on noiseless-window
-    extraction paths)."""
+def _align_features(X: pd.DataFrame, feature_columns, feature_defaults=None):
+    """Reindex ``X`` to the fitted ``feature_columns``.
+
+    Missing columns become NaN — the fitted ``SimpleImputer`` in the
+    pipeline fills them at ``predict`` time using training-fitted
+    statistics (``feature_defaults``, when given, are applied eagerly too).
+    """
     if feature_columns is None:
         return X
-    for col in feature_columns:
-        if col not in X.columns:
-            X[col] = float(feature_defaults.get(col, 0.0)) if feature_defaults else np.nan
-    X = X[feature_columns]
+    X = X.reindex(columns=feature_columns)
     if feature_defaults:
         X = X.fillna(feature_defaults)
     return X
@@ -146,6 +144,59 @@ def run_noise_sweep(
                     ),
                 }
             )
+    return pd.DataFrame(rows)
+
+
+def noisy_heldout_metrics(
+    pipe: Any,
+    y_val: np.ndarray,
+    clean_segments: list[np.ndarray],
+    noise_realizations: list[np.ndarray],
+    snrs: list[float],
+    fs: float,
+    feature_columns: list[str] | None = None,
+    seed: int = 42,
+) -> pd.DataFrame:
+    """Evaluate a fitted pipeline on noisy versions of held-out beats.
+
+    For each SNR level, each held-out beat segment is mixed with a cycled
+    NSTDB noise realization (deterministic seeded jitter), features are
+    re-extracted, and ``pipe.predict`` is applied — i.e., out-of-fold models
+    evaluate their corresponding held-out validation beats only (spec #3).
+    Returns a DataFrame with ``snr_db``, ``n_beats``, ``accuracy``,
+    ``macro_f1``, ``sensitivity_macro`` and ``balanced_accuracy``.
+    """
+    rng = np.random.default_rng(seed)
+    rows = []
+    y_val = np.asarray(y_val)
+    for snr in snrs:
+        feats = []
+        for i, seg in enumerate(clean_segments):
+            if not noise_realizations:
+                noisy = np.asarray(seg, dtype=float)
+            else:
+                noise = noise_realizations[i % len(noise_realizations)]
+                noise_seg = np.resize(noise, len(seg))
+                shift = int(rng.integers(-max(1, len(noise_seg) // 8),
+                                          max(2, len(noise_seg) // 8)))
+                noise_seg = np.roll(noise_seg, shift)
+                noisy, _achieved = add_noise(seg, noise_seg, snr)
+            feats.append(extract_features(noisy, fs))
+        Xn = _align_features(pd.DataFrame(feats), feature_columns, None)
+        pred = np.asarray(pipe.predict(Xn))
+        prec, rec, f1, _sup = precision_recall_fscore_support(
+            y_val, pred, labels=CLASSES, zero_division=0
+        )
+        rows.append(
+            {
+                "snr_db": float(snr),
+                "n_beats": int(len(pred)),
+                "accuracy": float(accuracy_score(y_val, pred)),
+                "macro_f1": float(np.mean(f1)),
+                "sensitivity_macro": float(np.mean(rec)),
+                "balanced_accuracy": float(balanced_accuracy_score(y_val, pred)),
+            }
+        )
     return pd.DataFrame(rows)
 
 

@@ -71,3 +71,33 @@ def test_pipeline_total_excluded_formula():
 def test_every_mapped_code(code, cls):
     mapped, _e, _u = classify_annotations([code])
     assert mapped == [cls]
+
+
+def test_annotate_annotations_statuses_and_alignment():
+    from ecg_robust.annotations import annotate_annotations
+    symbols = ["N", "L", "T", "A", "c", "Q"]
+    samples = [0, 360, 720, 1080, 1440, 1800]
+    recs = annotate_annotations(symbols, samples=samples)
+    assert [r.status for r in recs] == [
+        "mapped", "mapped", "excluded", "mapped", "unknown", "mapped"
+    ]
+    assert [r.aami_class for r in recs] == ["N", "N", None, "S", None, "Q"]
+    assert [r.index for r in recs] == [0, 1, 2, 3, 4, 5]
+    assert [r.sample for r in recs] == samples
+    assert [r.symbol for r in recs] == symbols
+
+
+def test_annotate_annotations_no_shift_on_mixed_sequence():
+    # Spec #1: excluded/unknown symbols appear explicitly without shifting
+    # subsequent labels; every record keeps its original index/sample/symbol.
+    from ecg_robust.annotations import annotate_annotations, classify_annotations
+    symbols = ["N", "T", "A", "V", "c", "L"]
+    recs = annotate_annotations(symbols, samples=[10, 20, 30, 40, 50, 60])
+    for i, r in enumerate(recs):
+        assert r.index == i
+        assert r.symbol == symbols[i]
+        assert r.sample == [10, 20, 30, 40, 50, 60][i]
+    mapped, excluded, unknown = classify_annotations(symbols)
+    assert mapped == ["N", "S", "V", "N"]  # mapped symbols only, in original order
+    assert sum(excluded.values()) == 1 and excluded["T"] == 1
+    assert sum(unknown.values()) == 1 and unknown["c"] == 1

@@ -94,8 +94,27 @@ def _cv_table(df: pd.DataFrame) -> list[str]:
     return lines
 
 
+def _confusion_table(model: str, cm: np.ndarray, title: str, classes: list[str]) -> list[str]:
+    """Markdown table for one confusion matrix (rows = true, cols = predicted)."""
+    lines = [f"#### `{model}` -- {title}", ""]
+    lines.append("| | " + " | ".join(str(c) for c in classes) + " |")
+    lines.append("|--|" + "|".join(["---"] * len(classes)) + "|")
+    for i, label in enumerate(classes):
+        lines.append("| " + str(label) + " | " +
+                     " | ".join(f"{cm[i, j]:,.0f}" for j in range(len(classes))) + " |")
+    return lines
+
+
 def write_technical_report(data: dict[str, Any], path: Path) -> Path:
-    """Write the full technical report; returns the report path."""
+    """Write the full technical report; returns the report path.
+
+    Primary research results are out-of-fold: ``confusion`` is the
+    out-of-fold confusion matrix, ``metrics_df``/``cv_df`` are the
+    out-of-fold CV metrics, ``noise_df`` is the out-of-fold noise
+    evaluation, ``per_class`` is keyed by the best evaluated model
+    (``best_model``); ``confusion_train`` holds separate full-data training
+    diagnostics (9.1b).
+    """
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -145,8 +164,8 @@ def write_technical_report(data: dict[str, Any], path: Path) -> Path:
     w(f"- NSTDB records: {len(ds['nstdb'])} -- "
       + ", ".join(str(r) for r in ds["nstdb"]))
     w(f"- Sampling frequency (MITDB): {ds['sampling_frequency_hz']} Hz")
-    w(f"- Beats segmented across all recordings (AAMI-mappable + excluded): "
-      f"{ds['total_beats_annotated']}")
+    w(f"- Beats segmented across all recordings (valid segments; excluded/unknown "
+      f"annotations may apply): {ds['total_beats_annotated']}")
     w(f"- Beats used in the feature matrix: {ds['total_beats_aami']}")
     w(f"- Excluded (known MITDB symbols absent from the AAMI map): "
       f"{ds['excluded_annotations']}")
@@ -198,8 +217,8 @@ def write_technical_report(data: dict[str, Any], path: Path) -> Path:
       "Beats of a recording are never split across train/validation -- there is "
       "no patient leakage. The 201/202 grouping was applied: recordings 201 and "
       "202 were assigned to the same subject group.")
-    w("- Each fold refits `StandardScaler` and the model on the training split "
-      "only.")
+    w("- Each fold refits `SimpleImputer` + `StandardScaler` and the model on "
+      "the training split only (spec #4).")
 
     w("\n## 7. Models\n")
     w("- **DummyClassifier** (`strategy='most_frequent'`) -- patient-independent "
@@ -208,8 +227,9 @@ def write_technical_report(data: dict[str, Any], path: Path) -> Path:
       "`random_state=42`.")
     w("- **SupportVectorMachine (RBF)** -- `C=1.0`, `kernel='rbf'`, "
       "`class_weight='balanced'`, `random_state=42`.")
-    w("For CV, models were wrapped in `sklearn.pipeline.Pipeline` "
-      "(`StandardScaler` -> model).")
+    w("For CV and final fits, models were wrapped in `sklearn.pipeline.Pipeline` "
+      "(`SimpleImputer` + `StandardScaler` -> model); the imputer and scaler "
+      "are fit on each fold's training data only (spec #4).")
 
     w("\n## 8. Metric Definitions\n")
     w("- Accuracy = (TP + TN) / Total.")
@@ -226,26 +246,36 @@ def write_technical_report(data: dict[str, Any], path: Path) -> Path:
     w("\n".join(_cv_table(metrics_df)))
     w(f"\nBest CV accuracy: **{max(cv_by_model.values()):.4f}** ({max(cv_by_model, key=cv_by_model.get)}).")
 
-    w("\n### 9.1 Confusion matrices (sum over folds)\n")
+    w("\n### 9.1 Confusion matrices (out-of-fold; sum over folds)\n")
     for model, cm in data.get("confusion", {}).items():
         if cm is None:
             continue
         cm = np.asarray(cm)
         if cm.size == 0:
             continue
-        w(f"#### `{model}` -- predicted class x true class")
         w("")
-        w("| | " + " | ".join(str(c) for c in data["confusion_labels"]) + " |")
-        w("|--|" + "|".join(["---"] * len(data["confusion_labels"])) + "|")
-        for i, label in enumerate(data["confusion_labels"]):
-            w("| " + str(label) + " | " + " | ".join(f"{cm[i, j]:,.0f}" for j in range(len(data["confusion_labels"]))) + " |")
+        w("\n".join(_confusion_table(
+            model, cm, "out-of-fold (sum over folds)", data["confusion_labels"])))
 
-    w("\n### 9.2 Per-class performance (dummy classifier)")
+    w("\n### 9.1b Training diagnostics (full-data fits, diagnostics only)")
+    conf_train = data.get("confusion_train") or {}
+    for model, cm in conf_train.items():
+        if cm is None:
+            continue
+        cm = np.asarray(cm)
+        if cm.size == 0:
+            continue
+        w("")
+        w("\n".join(_confusion_table(
+            model, cm, "training (full data, diagnostics)", data["confusion_labels"])))
+
+    best_model = data.get("best_model", "dummy")
+    w(f"\n### 9.2 Per-class performance of the best evaluated model (`{best_model}`)")
     w("Per-class performance (precision, recall, sensitivity, specificity, F1, support):")
     w("")
     w("| Class | Precision | Recall | Sensitivity | Specificity | F1 | Support |")
     w("|---|---|---|---|---|---|---|")
-    pc = data.get("per_class", {}).get("dummy", {})
+    pc = data.get("per_class", {}).get(best_model, {})
     for cls in ["N", "S", "V", "F", "Q"]:
         r = pc.get(cls, {})
         row = []
@@ -267,7 +297,8 @@ def write_technical_report(data: dict[str, Any], path: Path) -> Path:
       "These are labeled synthetic-mixture results; the recorded-noise "
       "experiment below uses real NSTDB noise.")
     if noise_df is not None and len(noise_df):
-        w("\n### 10.1 Synthetic mixtures -- accuracy vs SNR")
+        w("\n### 10.1 Out-of-fold synthetic mixtures -- accuracy vs SNR "
+          "(per-fold models scored on held-out validation beats; spec #3)")
         w("\n| SNR (dB) | Model | Accuracy | Macro F1 | Macro Sensitivity | Balanced Accuracy |")
         w("|---|---|---|---|---|---|")
         for _, r in noise_df.sort_values(["snr_db", "model"]).iterrows():
@@ -303,6 +334,11 @@ def write_technical_report(data: dict[str, Any], path: Path) -> Path:
         else:
             w("(No NSTDB records were available for classification at the "
               "time of the report; check `reports/results/nstdb_evaluation.csv`.)")
+        reserved = data.get("reserved_records") or []
+        if reserved:
+            w("\nNote: the final models used for the recorded-noise evaluation "
+              f"were trained on the full data excluding the reserved records "
+              f"({', '.join(reserved)}); see 9.1b.")
         w("\n### 10.3 Figures: `snr_vs_macro_f1.png`, `snr_vs_sensitivity.png`, "
           "`snr_vs_balanced_accuracy.png`, `clean_vs_noisy.png`")
 

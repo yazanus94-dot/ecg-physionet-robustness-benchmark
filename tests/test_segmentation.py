@@ -57,3 +57,38 @@ def test_rr_ratios_zero_guard():
     ratios = rr_ratios(np.array([1.0, 0.0, 1.0]))
     assert len(ratios) == 2
     assert ratios[1] == 0.0  # guarded division
+
+
+def test_extract_beats_alignment_preserved():
+    # Spec #1 (acceptance test): mixed annotation sequence; every retained
+    # segment keeps its original annotation index, position and AAMI label.
+    from ecg_robust.annotations import annotate_annotations
+    from ecg_robust.segmentation import extract_beats
+    fs = 360.0
+    codes = ["N", "T", "A", "V", "?", "Q"]
+    samples = [3600, 7200, 10800, 14400, 18000, 21600]
+    recs = annotate_annotations(codes, samples=samples)
+    x = np.arange(int(4.5 * 360 * 1000), dtype=float)  # long signal
+    beats = extract_beats(x, fs, recs)
+    assert len(beats) == len(recs)
+    for beat, rec in zip(beats, recs):
+        assert beat.index == rec.index
+        assert beat.r_sample == rec.sample
+        assert beat.symbol == rec.symbol
+        assert beat.aami_class == rec.aami_class
+        assert beat.status == rec.status
+        # segment is x[r_i - 0.25*fs : r_i + 0.45*fs] (clamped at 0)
+        assert np.allclose(beat.segment, x[beat.r_sample - 90: beat.r_sample - 90 + len(beat.segment)])
+
+
+def test_extract_beats_dropped_segments_do_not_shift_alignment():
+    from ecg_robust.annotations import annotate_annotations
+    from ecg_robust.segmentation import extract_beats
+    fs = 360.0
+    recs = annotate_annotations(["N", "N"], samples=[3600, 7200])
+    # signal long enough for the first beat only -> second segment dropped
+    x = np.arange(3600 + 90 + 162, dtype=float)
+    beats = extract_beats(x, fs, recs)
+    assert len(beats) == 1
+    assert beats[0].index == 0
+    assert beats[0].r_sample == 3600

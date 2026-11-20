@@ -8,6 +8,8 @@ short) segments are dropped.
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 import numpy as np
 
 BEFORE_S = 0.25  # seconds before r_i
@@ -40,6 +42,53 @@ def extract_segments(
         if len(seg) >= MIN_LENGTH:
             segments.append(seg)
     return segments
+
+
+class Beat(NamedTuple):
+    """A heartbeat segment aligned to its source annotation.
+
+    - ``segment``: the extracted waveform.
+    - ``r_sample``: the original R annotation position.
+    - ``aami_class``: AAMI class when the annotation was mapped (else ``None``).
+    - ``index``: the original annotation index in the annotation list.
+    - ``symbol``: the raw MITDB annotation symbol.
+    - ``status``: ``"mapped"`` | ``"excluded"`` | ``"unknown"``.
+    """
+
+    segment: np.ndarray
+    r_sample: int
+    aami_class: str | None
+    index: int
+    symbol: str
+    status: str
+
+
+def extract_beats(
+    x: np.ndarray,
+    fs: float,
+    annotation_records,
+    before: float = BEFORE_S,
+    after: float = AFTER_S,
+) -> list[Beat]:
+    """Extract heartbeat segments aligned to annotation records.
+
+    One :class:`Beat` per valid (non-degenerate) segment; every beat carries
+    the original annotation ``index``/``sample``/``symbol``/``class``, so
+    dropped segments never shift alignment (spec #1).
+    """
+    x = np.asarray(x, dtype=float)
+    n = len(x)
+    n_pre = int(round(before * fs))
+    n_post = int(round(after * fs))
+    beats: list[Beat] = []
+    for rec in annotation_records:
+        start = max(0, int(rec.sample) - n_pre)
+        stop = min(int(rec.sample) + n_post, n)
+        seg = x[start:stop]
+        if len(seg) >= MIN_LENGTH:
+            beats.append(Beat(seg, rec.sample, rec.aami_class,
+                              rec.index, rec.symbol, rec.status))
+    return beats
 
 
 def rr_intervals(
