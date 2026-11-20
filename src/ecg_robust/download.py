@@ -23,14 +23,14 @@ def _download_with_wfdb(db_dir: str, dl_dir: Path) -> bool:
     try:
         wfdb.dl_database(db_dir, str(dl_dir))
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001 -- intentional fallback to urllib
         return False
 
 
 def _download_with_urllib(db_dir: str, dl_dir: Path, version: str = "1.0.0") -> None:
     """Manual HTTP fallback: download the PhysioNet database listing + files."""
     base = f"https://physionet.org/files/{db_dir}/{version}/"
-    listing = urllib.request.urlopen(base).read().decode("utf-8", "replace")  # noqa: S310
+    listing = urllib.request.urlopen(base).read().decode("utf-8", "replace")
     import re
 
     dl_dir.mkdir(parents=True, exist_ok=True)
@@ -40,16 +40,16 @@ def _download_with_urllib(db_dir: str, dl_dir: Path, version: str = "1.0.0") -> 
         url = base + name
         dest = dl_dir / name
         if not dest.exists():
-            urllib.request.urlretrieve(url, dest)  # noqa: S310
+            urllib.request.urlretrieve(url, dest)
             print(f"[download] {name}")
 
 
 def download_database(db_dir: str, version: str = "1.0.0") -> Path:
     """Download ``db_dir`` (e.g. ``mitdb``) into ``data/raw/<db_dir>``."""
     dl_dir = RAW_ROOT / db_dir
-    if not dl_dir.exists() or not list(dl_dir.glob("*.dat")):
-        if not _download_with_wfdb(db_dir, dl_dir):
-            _download_with_urllib(db_dir, dl_dir, version)
+    needs_download = not dl_dir.exists() or not list(dl_dir.glob("*.dat"))
+    if needs_download and not _download_with_wfdb(db_dir, dl_dir):
+        _download_with_urllib(db_dir, dl_dir, version)
     return dl_dir
 
 

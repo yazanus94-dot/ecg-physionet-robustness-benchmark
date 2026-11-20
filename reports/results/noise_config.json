@@ -1,0 +1,34 @@
+{
+  "noise_rng_seed": 43,
+  "design": "single shared noise-realization stream; per fold/SNR the noisy validation feature matrix is generated once by generate_noisy_features and shared by every model in the fold",
+  "snrs_db": [
+    24.0,
+    18.0,
+    12.0,
+    6.0,
+    0.0,
+    -6.0
+  ],
+  "n_noise_realizations": 8,
+  "noise_record_ids": [
+    "118e00",
+    "118e06",
+    "118e12",
+    "118e18",
+    "118e24",
+    "118e_6",
+    "119e00",
+    "119e06"
+  ],
+  "noise_realization_fs_values": [
+    360
+  ],
+  "achieved_snr_db_by_snr": {
+    "24.0": 24.0,
+    "18.0": 18.0,
+    "12.0": 12.0,
+    "6.0": 6.0,
+    "0.0": 4.7425591052161943e-17,
+    "-6.0": -6.0
+  }
+}

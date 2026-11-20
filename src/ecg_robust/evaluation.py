@@ -25,6 +25,43 @@ from sklearn.metrics import (
 )
 
 
+def per_class_metrics_from_cm(cm, classes) -> dict:
+    """Per-class precision, recall, sensitivity, specificity, F1, support.
+
+    Computed from a confusion matrix ``cm`` (rows = true class, columns =
+    predicted class). Used to aggregate out-of-fold predictions from the
+    summed confusion matrix. Mathematically agrees with
+    :func:`evaluate`'s per-class table (spec #2).
+    """
+    cm = np.asarray(cm, dtype=float)
+    total = float(cm.sum())
+    out = {}
+    for i, c in enumerate(classes):
+        tp = float(cm[i, i])
+        row_true = float(cm[i, :].sum())  # support (true class = c)
+        col_pred = float(cm[:, i].sum())  # predicted class = c
+        fp = col_pred - tp
+        row_true - tp
+        tn = total - row_true - col_pred + tp
+        precision = tp / col_pred if col_pred > 0 else 0.0
+        recall = tp / row_true if row_true > 0 else 0.0
+        specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+        f1 = (
+            2 * precision * recall / (precision + recall)
+            if (precision + recall) > 0
+            else 0.0
+        )
+        out[c] = {
+            "precision": float(precision),
+            "recall": float(recall),
+            "sensitivity": float(recall),
+            "specificity": float(specificity),
+            "f1": float(f1),
+            "support": int(row_true),
+        }
+    return out
+
+
 def evaluate(y_true, y_pred, classes) -> dict:
     """Compute all requested metrics + confusion matrix + per-class report."""
     y_true = np.asarray(y_true)
@@ -54,6 +91,18 @@ def evaluate(y_true, y_pred, classes) -> dict:
         }
         for i, c in enumerate(classes)
     }
+    # Cross-check: per-class metrics from the confusion matrix agree with
+    # the (y_true, y_pred) computation above.
+    from ecg_robust.evaluation import per_class_metrics_from_cm as _pcm
+
+    for c in classes:
+        assert np.isclose(
+            _pcm(cm, classes)[c]["precision"], per_class[c]["precision"]
+        ), c
+        assert np.isclose(_pcm(cm, classes)[c]["recall"], per_class[c]["recall"]), c
+        assert np.isclose(
+            _pcm(cm, classes)[c]["specificity"], per_class[c]["specificity"]
+        ), c
     return {
         "accuracy": float(accuracy_score(y_true, y_pred)),
         "precision_macro": float(np.mean(prec)),
@@ -61,9 +110,7 @@ def evaluate(y_true, y_pred, classes) -> dict:
         "sensitivity_macro": float(np.mean(rec)),
         "specificity_macro": float(np.mean(specificity)),
         "f1_macro": float(np.mean(f1)),
-        "f1_weighted": (
-            float(np.average(f1, weights=sup)) if sup.sum() > 0 else 0.0
-        ),
+        "f1_weighted": (float(np.average(f1, weights=sup)) if sup.sum() > 0 else 0.0),
         "balanced_accuracy": float(balanced_accuracy_score(y_true, y_pred)),
         "confusion_matrix": cm.tolist(),
         "confusion_matrix_labels": classes,

@@ -20,7 +20,6 @@ Figures produced:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import matplotlib
 
@@ -61,8 +60,15 @@ def plot_segmentation(
     fig, ax = plt.subplots(figsize=(11, 4))
     ax.plot(_time_axis(fs, n), x[:n], lw=0.8, color="#1f77b4")
     sel = r_positions[(r_positions >= 0) & (r_positions < n)]
-    ax.vlines(sel / fs, ax.get_ylim()[0] - 1, ax.get_ylim()[1] + 1,
-              colors="red", alpha=0.35, linewidths=0.8, label="R annotations (ref)")
+    ax.vlines(
+        sel / fs,
+        ax.get_ylim()[0] - 1,
+        ax.get_ylim()[1] + 1,
+        colors="red",
+        alpha=0.35,
+        linewidths=0.8,
+        label="R annotations (ref)",
+    )
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("ECG (mV)")
     ax.set_title("Beat segmentation around reference annotations")
@@ -73,7 +79,9 @@ def plot_segmentation(
     plt.close(fig)
 
 
-def plot_class_distribution(class_counts: dict[str, int], out: str = "class_distribution.png") -> None:
+def plot_class_distribution(
+    class_counts: dict[str, int], out: str = "class_distribution.png"
+) -> None:
     """Bar chart of the heartbeat class distribution."""
     classes = CLASSES
     counts = [class_counts.get(c, 0) for c in classes]
@@ -83,8 +91,14 @@ def plot_class_distribution(class_counts: dict[str, int], out: str = "class_dist
     ax.set_ylabel("Beats")
     ax.set_title("Heartbeat class distribution (MIT-BIH Arrhythmia Database)")
     for b in bars:
-        ax.text(b.get_x() + b.get_width() / 2, b.get_height() + 0.5,
-                f"{b.get_height():,}", ha="center", va="bottom", fontsize=8)
+        ax.text(
+            b.get_x() + b.get_width() / 2,
+            b.get_height() + 0.5,
+            f"{b.get_height():,}",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+        )
     ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
     fig.savefig(FIG_DIR / out, dpi=140)
@@ -92,7 +106,9 @@ def plot_class_distribution(class_counts: dict[str, int], out: str = "class_dist
 
 
 def plot_class_comparison(
-    segments: dict[str, list[np.ndarray]], fs: float, out: str = "ecg_classes_comparison.png"
+    segments: dict[str, list[np.ndarray]],
+    fs: float,
+    out: str = "ecg_classes_comparison.png",
 ) -> None:
     """Overlay mean heartbeat per AAMI class (per-class waveform comparison)."""
     fig, axes = plt.subplots(2, 3, figsize=(13, 6))
@@ -144,8 +160,15 @@ def plot_confusion_matrix(
     ax.set_yticklabels(classes)
     for i in range(len(classes)):
         for j in range(len(classes)):
-            ax.text(j, i, f"{cm[i, j]:,}", ha="center", va="center",
-                    color="white" if cm[i, j] > cm.max() / 2 else "black", fontsize=8)
+            ax.text(
+                j,
+                i,
+                f"{cm[i, j]:,}",
+                ha="center",
+                va="center",
+                color="white" if cm[i, j] > cm.max() / 2 else "black",
+                fontsize=8,
+            )
     ax.set_xlabel("Predicted")
     ax.set_ylabel("True")
     ax.set_title(f"Confusion matrix — {model_name}")
@@ -154,16 +177,22 @@ def plot_confusion_matrix(
     plt.close(fig)
 
 
-def plot_model_performance(metrics_df: pd.DataFrame, out: str = "model_performance.png") -> None:
+def plot_model_performance(
+    metrics_df: pd.DataFrame, out: str = "model_performance.png"
+) -> None:
     """Grouped bar chart: accuracy, macro F1, macro sensitivity, balanced accuracy per model."""
     metrics_df = metrics_df.sort_values("model")
     fig, ax = plt.subplots(figsize=(8.5, 4.5))
     x = np.arange(len(metrics_df["model"]))
     width = 0.2
-    for i, col in enumerate(["accuracy", "macro_f1", "sensitivity_macro", "balanced_accuracy"]):
+    for i, col in enumerate(
+        ["accuracy", "macro_f1", "sensitivity_macro", "balanced_accuracy"]
+    ):
         if col not in metrics_df.columns:
             continue
-        ax.bar(x + i * width, metrics_df[col], width, label=col.replace("_", " ").title())
+        ax.bar(
+            x + i * width, metrics_df[col], width, label=col.replace("_", " ").title()
+        )
     ax.set_xticks(x + width * 1.5)
     ax.set_xticklabels(metrics_df["model"])
     ax.set_ylim(0, 1.05)
@@ -215,6 +244,22 @@ def plot_snr_vs_metric(
     plt.close(fig)
 
 
+def plot_feature_ablation(df: pd.DataFrame, out: str = "feature_ablation.png") -> None:
+    """Bar chart: mean 5-fold CV accuracy by feature variant and model."""
+    pivot = df.pivot_table(
+        index="variant", columns="model", values="accuracy_mean", aggfunc="first"
+    )
+    fig, ax = plt.subplots(figsize=(9.5, 5))
+    pivot.plot(kind="bar", ax=ax, colormap="viridis")
+    ax.set_ylabel("Mean 5-fold CV accuracy")
+    ax.set_title("Feature ablation (same patient-independent folds)")
+    ax.set_ylim(0, 1.05)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / out, dpi=140)
+    plt.close(fig)
+
+
 def save_all_figures(
     ecg_original: np.ndarray,
     ecg_filtered: np.ndarray,
@@ -231,9 +276,16 @@ def save_all_figures(
     """Generate all scientific figures; returns the list of figure paths."""
     made: list[str] = []
     fs = 360.0
-    plot_signal(ecg_original, fs, "Original ECG waveform (first 5 s)", "ecg_original.png")
+    plot_signal(
+        ecg_original, fs, "Original ECG waveform (first 5 s)", "ecg_original.png"
+    )
     made.append("ecg_original.png")
-    plot_signal(ecg_filtered, fs, "Filtered ECG waveform (first 5 s, 4th-order Butterworth 0.5–40 Hz)", "ecg_filtered.png")
+    plot_signal(
+        ecg_filtered,
+        fs,
+        "Filtered ECG waveform (first 5 s, 4th-order Butterworth 0.5–40 Hz)",
+        "ecg_filtered.png",
+    )
     made.append("ecg_filtered.png")
     plot_segmentation(ecg_filtered, r_positions, fs)
     made.append("ecg_segmentation.png")
@@ -251,13 +303,17 @@ def save_all_figures(
         plot_clean_vs_noisy(clean_seg, noisy_seg, fs)
         made.append("clean_vs_noisy.png")
     if noise_df is not None and len(noise_df):
-        plot_snr_vs_metric(noise_df, "macro_f1", "snr_vs_macro_f1.png",
-                           "Macro F1")
+        plot_snr_vs_metric(noise_df, "macro_f1", "snr_vs_macro_f1.png", "Macro F1")
         made.append("snr_vs_macro_f1.png")
-        plot_snr_vs_metric(noise_df, "sensitivity_macro", "snr_vs_sensitivity.png",
-                           "Macro sensitivity")
+        plot_snr_vs_metric(
+            noise_df, "sensitivity_macro", "snr_vs_sensitivity.png", "Macro sensitivity"
+        )
         made.append("snr_vs_sensitivity.png")
-        plot_snr_vs_metric(noise_df, "balanced_accuracy", "snr_vs_balanced_accuracy.png",
-                           "Balanced accuracy")
+        plot_snr_vs_metric(
+            noise_df,
+            "balanced_accuracy",
+            "snr_vs_balanced_accuracy.png",
+            "Balanced accuracy",
+        )
         made.append("snr_vs_balanced_accuracy.png")
     return [str(FIG_DIR / m) for m in made]

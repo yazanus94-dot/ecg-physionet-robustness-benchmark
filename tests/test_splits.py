@@ -1,6 +1,7 @@
 """Tests for patient-independent splitting (no patient leakage)."""
 
 import numpy as np
+import pytest
 
 from ecg_robust.splits import make_groups, patient_splits
 
@@ -32,7 +33,14 @@ def test_no_patient_overlap_between_folds():
 
 def test_group_201_202_never_split():
     y = np.array(["N"] * 70)
-    recs = ["201"] * 10 + ["202"] * 10 + ["303"] * 20 + ["304"] * 10 + ["305"] * 10 + ["306"] * 10
+    recs = (
+        ["201"] * 10
+        + ["202"] * 10
+        + ["303"] * 20
+        + ["304"] * 10
+        + ["305"] * 10
+        + ["306"] * 10
+    )
     groups = make_groups(recs)
     group = "201+202"
     folds = list(patient_splits(y, groups, n_splits=5, random_state=42))
@@ -42,6 +50,25 @@ def test_group_201_202_never_split():
         assert not (group in set(groups[tr]) and group in set(groups[va]))
     # the shared group is exercised in some fold
     assert any(
-        group in set(groups[va]) or group in set(groups[tr])
-        for _tr, va in folds
+        group in set(groups[va]) or group in set(groups[tr]) for _tr, va in folds
     )
+
+
+def test_pipeline_folds_no_group_leakage_on_real_records():
+    # Phase 6: the actual pipeline design — patient-independent folds over
+    # the real MITDB recording groups (201/202 grouped) — has no
+    # train/validation group overlap (no patient leakage).
+    import numpy as np
+
+    from ecg_robust.dataset import MITDB_DIR, database_records
+    from ecg_robust.splits import make_groups, patient_splits
+
+    records = database_records(MITDB_DIR)
+    if not records:
+        pytest.skip("MITDB not downloaded")
+    y = np.array(["N"] * len(records))
+    groups = make_groups(records)
+    for tr, va in patient_splits(y, groups, n_splits=5, random_state=42):
+        assert len(set(groups[tr]) & set(groups[va])) == 0
+    # 201/202 share one subject group
+    assert make_groups(["201", "202"])[0] == make_groups(["201", "202"])[1]

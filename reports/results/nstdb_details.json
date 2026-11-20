@@ -1,7 +1,7 @@
 [
   {
     "record": "118e00",
-    "n_segments": 2301,
+    "n_beats": 2278,
     "n_samples": 650000,
     "fs": 360,
     "segment_lengths_head": [
@@ -13,11 +13,17 @@
       252,
       252,
       252
-    ]
+    ],
+    "n_annotations": 2301,
+    "n_valid": 2278,
+    "n_excluded_annotations": 23,
+    "n_unknown_annotations": 0,
+    "n_unaligned_annotations": 23,
+    "truth_source": "nstdb_annotations"
   },
   {
     "record": "118e06",
-    "n_segments": 2301,
+    "n_beats": 2278,
     "n_samples": 650000,
     "fs": 360,
     "segment_lengths_head": [
@@ -29,11 +35,17 @@
       252,
       252,
       252
-    ]
+    ],
+    "n_annotations": 2301,
+    "n_valid": 2278,
+    "n_excluded_annotations": 23,
+    "n_unknown_annotations": 0,
+    "n_unaligned_annotations": 23,
+    "truth_source": "nstdb_annotations"
   },
   {
     "record": "118e12",
-    "n_segments": 2301,
+    "n_beats": 2278,
     "n_samples": 650000,
     "fs": 360,
     "segment_lengths_head": [
@@ -45,11 +57,17 @@
       252,
       252,
       252
-    ]
+    ],
+    "n_annotations": 2301,
+    "n_valid": 2278,
+    "n_excluded_annotations": 23,
+    "n_unknown_annotations": 0,
+    "n_unaligned_annotations": 23,
+    "truth_source": "nstdb_annotations"
   },
   {
     "record": "118e18",
-    "n_segments": 2301,
+    "n_beats": 2278,
     "n_samples": 650000,
     "fs": 360,
     "segment_lengths_head": [
@@ -61,11 +79,17 @@
       252,
       252,
       252
-    ]
+    ],
+    "n_annotations": 2301,
+    "n_valid": 2278,
+    "n_excluded_annotations": 23,
+    "n_unknown_annotations": 0,
+    "n_unaligned_annotations": 23,
+    "truth_source": "nstdb_annotations"
   },
   {
     "record": "118e24",
-    "n_segments": 2301,
+    "n_beats": 2278,
     "n_samples": 650000,
     "fs": 360,
     "segment_lengths_head": [
@@ -77,11 +101,17 @@
       252,
       252,
       252
-    ]
+    ],
+    "n_annotations": 2301,
+    "n_valid": 2278,
+    "n_excluded_annotations": 23,
+    "n_unknown_annotations": 0,
+    "n_unaligned_annotations": 23,
+    "truth_source": "nstdb_annotations"
   },
   {
     "record": "118e_6",
-    "n_segments": 2301,
+    "n_beats": 2278,
     "n_samples": 650000,
     "fs": 360,
     "segment_lengths_head": [
@@ -93,11 +123,17 @@
       252,
       252,
       252
-    ]
+    ],
+    "n_annotations": 2301,
+    "n_valid": 2278,
+    "n_excluded_annotations": 23,
+    "n_unknown_annotations": 0,
+    "n_unaligned_annotations": 23,
+    "truth_source": "nstdb_annotations"
   },
   {
     "record": "119e00",
-    "n_segments": 2094,
+    "n_beats": 1987,
     "n_samples": 650000,
     "fs": 360,
     "segment_lengths_head": [
@@ -109,11 +145,17 @@
       252,
       252,
       252
-    ]
+    ],
+    "n_annotations": 2094,
+    "n_valid": 1987,
+    "n_excluded_annotations": 107,
+    "n_unknown_annotations": 0,
+    "n_unaligned_annotations": 107,
+    "truth_source": "nstdb_annotations"
   },
   {
     "record": "119e06",
-    "n_segments": 2094,
+    "n_beats": 1987,
     "n_samples": 650000,
     "fs": 360,
     "segment_lengths_head": [
@@ -125,11 +167,17 @@
       252,
       252,
       252
-    ]
+    ],
+    "n_annotations": 2094,
+    "n_valid": 1987,
+    "n_excluded_annotations": 107,
+    "n_unknown_annotations": 0,
+    "n_unaligned_annotations": 107,
+    "truth_source": "nstdb_annotations"
   },
   {
     "record": "119e12",
-    "n_segments": 2094,
+    "n_beats": 1987,
     "n_samples": 650000,
     "fs": 360,
     "segment_lengths_head": [
@@ -141,11 +189,17 @@
       252,
       252,
       252
-    ]
+    ],
+    "n_annotations": 2094,
+    "n_valid": 1987,
+    "n_excluded_annotations": 107,
+    "n_unknown_annotations": 0,
+    "n_unaligned_annotations": 107,
+    "truth_source": "nstdb_annotations"
   },
   {
     "record": "119e18",
-    "n_segments": 2094,
+    "n_beats": 1987,
     "n_samples": 650000,
     "fs": 360,
     "segment_lengths_head": [
@@ -157,11 +211,17 @@
       252,
       252,
       252
-    ]
+    ],
+    "n_annotations": 2094,
+    "n_valid": 1987,
+    "n_excluded_annotations": 107,
+    "n_unknown_annotations": 0,
+    "n_unaligned_annotations": 107,
+    "truth_source": "nstdb_annotations"
   },
   {
     "record": "119e24",
-    "n_segments": 2094,
+    "n_beats": 1987,
     "n_samples": 650000,
     "fs": 360,
     "segment_lengths_head": [
@@ -173,11 +233,17 @@
       252,
       252,
       252
-    ]
+    ],
+    "n_annotations": 2094,
+    "n_valid": 1987,
+    "n_excluded_annotations": 107,
+    "n_unknown_annotations": 0,
+    "n_unaligned_annotations": 107,
+    "truth_source": "nstdb_annotations"
   },
   {
     "record": "119e_6",
-    "n_segments": 2094,
+    "n_beats": 1987,
     "n_samples": 650000,
     "fs": 360,
     "segment_lengths_head": [
@@ -189,11 +255,17 @@
       252,
       252,
       252
-    ]
+    ],
+    "n_annotations": 2094,
+    "n_valid": 1987,
+    "n_excluded_annotations": 107,
+    "n_unknown_annotations": 0,
+    "n_unaligned_annotations": 107,
+    "truth_source": "nstdb_annotations"
   },
   {
     "record": "bw",
-    "n_segments": 2193,
+    "n_beats": 0,
     "n_samples": 650000,
     "fs": 360,
     "segment_lengths_head": [
@@ -205,11 +277,17 @@
       252,
       252,
       252
-    ]
+    ],
+    "n_annotations": 2193,
+    "n_valid": 0,
+    "n_excluded_annotations": 0,
+    "n_unknown_annotations": 2193,
+    "n_unaligned_annotations": 2193,
+    "truth_source": "r_peak_fallback"
   },
   {
     "record": "em",
-    "n_segments": 1989,
+    "n_beats": 0,
     "n_samples": 650000,
     "fs": 360,
     "segment_lengths_head": [
@@ -221,11 +299,17 @@
       252,
       252,
       252
-    ]
+    ],
+    "n_annotations": 1989,
+    "n_valid": 0,
+    "n_excluded_annotations": 0,
+    "n_unknown_annotations": 1989,
+    "n_unaligned_annotations": 1989,
+    "truth_source": "r_peak_fallback"
   },
   {
     "record": "ma",
-    "n_segments": 2276,
+    "n_beats": 0,
     "n_samples": 650000,
     "fs": 360,
     "segment_lengths_head": [
@@ -237,6 +321,12 @@
       252,
       252,
       252
-    ]
+    ],
+    "n_annotations": 2276,
+    "n_valid": 0,
+    "n_excluded_annotations": 0,
+    "n_unknown_annotations": 2276,
+    "n_unaligned_annotations": 2276,
+    "truth_source": "r_peak_fallback"
   }
 ]

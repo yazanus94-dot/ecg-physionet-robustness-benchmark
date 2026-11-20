@@ -52,12 +52,49 @@ CLASSES = ["N", "S", "V", "F", "Q"]
 # Used to distinguish "excluded by the AAMI mapping" from "unknown code".
 KNOWN_MITDB_SYMBOLS = frozenset(
     [
-        "N", "L", "R", "e", "j",
-        "A", "a", "J", "S",
-        "V", "E", "F", "Q", "/", "f",
-        "T", "P", "U", "x", "+", "!", "?", "#", "'", "^", "|", "~",
-        "s", "t", "u", "v", "w", "y", "z", "m", "n", "p", "q", "r",
-        "H", "K", "Z", "B",
+        "N",
+        "L",
+        "R",
+        "e",
+        "j",
+        "A",
+        "a",
+        "J",
+        "S",
+        "V",
+        "E",
+        "F",
+        "Q",
+        "/",
+        "f",
+        "T",
+        "P",
+        "U",
+        "x",
+        "+",
+        "!",
+        "?",
+        "#",
+        "'",
+        "^",
+        "|",
+        "~",
+        "s",
+        "t",
+        "u",
+        "v",
+        "w",
+        "y",
+        "z",
+        "m",
+        "n",
+        "p",
+        "q",
+        "r",
+        "H",
+        "K",
+        "Z",
+        "B",
     ]
 )
 
@@ -72,24 +109,70 @@ class AnnotationRecord(NamedTuple):
     - ``status``: ``"mapped"`` | ``"excluded"`` | ``"unknown"``.
     """
 
-    index: int
+    # "index" is overridden by `tuple.index` (a method); the field is
+    # required by the project spec — type-ignore the assignment conflict.
+    index: int  # type: ignore[assignment]
     symbol: str
     sample: int
     aami_class: str | None
     status: str
 
 
-def annotate_annotations(symbols, samples=None) -> list[AnnotationRecord]:
+def _validated_sample(pos: Any, i: int, signal_length: int | None = None) -> int:
+    """Validate one annotation position.
+
+    Integer-compatible, non-negative, and — when ``signal_length`` is given —
+    inside the signal bounds ``[0, signal_length)``.
+    """
+    try:
+        v = int(pos)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"annotation sample position must be integer-compatible, "
+            f"got {pos!r} at index {i}"
+        )
+    if v != pos:
+        raise ValueError(
+            f"annotation sample position must be an integer, got {pos!r} at index {i}"
+        )
+    if v < 0:
+        raise ValueError(
+            f"invalid (negative) annotation sample position: {v} at index {i}"
+        )
+    if signal_length is not None and v >= signal_length:
+        raise ValueError(
+            f"annotation sample position {v} at index {i} is outside the "
+            f"signal bounds [0, {signal_length})"
+        )
+    return v
+
+
+def annotate_annotations(
+    symbols, samples=None, signal_length: int | None = None
+) -> list[AnnotationRecord]:
     """Return one :class:`AnnotationRecord` per symbol, preserving alignment.
 
     Excluded and unknown symbols appear explicitly with their original
     ``index``/``sample`` and ``aami_class=None``; mapped symbols carry their
     class. ``samples`` is the parallel list of annotation positions; it
-    defaults to the list index.
+    defaults to the list index. ``signal_length`` — the length of the signal
+    the positions refer to, when available — enables bounds validation.
+
+    Validation (spec #4): ``symbols`` and ``samples`` must have the same
+    length; every sample position must be integer-compatible and non-negative
+    — otherwise an explicit ``ValueError`` is raised (nothing is silently
+    truncated or dropped). When ``signal_length`` is given, positions outside
+    ``[0, signal_length)`` are also rejected.
     """
     symbols = [str(s) for s in symbols]
     if samples is None:
-        samples = range(len(symbols))
+        samples = list(range(len(symbols)))
+    if len(samples) != len(symbols):
+        raise ValueError(
+            f"symbols and samples must have the same length "
+            f"(got {len(symbols)} symbols and {len(samples)} samples)"
+        )
+    samples = [_validated_sample(s, i, signal_length) for i, s in enumerate(samples)]
     out: list[AnnotationRecord] = []
     for i, (s, pos) in enumerate(zip(symbols, samples)):
         s = str(s)
@@ -113,8 +196,9 @@ def classify_annotations(symbols) -> tuple[list[str], Counter, Counter]:
     excluded: Counter = Counter()
     unknown: Counter = Counter()
     for rec in annotate_annotations(symbols):
-        if rec.status == "mapped":
-            mapped.append(rec.aami_class)
+        aami = rec.aami_class
+        if rec.status == "mapped" and aami is not None:
+            mapped.append(aami)
         elif rec.status == "excluded":
             excluded[rec.symbol] += 1
         else:
@@ -122,7 +206,9 @@ def classify_annotations(symbols) -> tuple[list[str], Counter, Counter]:
     return mapped, excluded, unknown
 
 
-def annotation_report(mapped: list[str], excluded: Counter, unknown: Counter) -> dict[str, Any]:
+def annotation_report(
+    mapped: list[str], excluded: Counter, unknown: Counter
+) -> dict[str, Any]:
     """Summary of annotation handling: class counts and excluded/unknown codes."""
     counts = Counter(mapped)
     return {

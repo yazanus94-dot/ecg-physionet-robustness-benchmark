@@ -15,7 +15,9 @@ DEFAULT_ORDER = 4
 
 
 def butter_bandpass_sos(
-    fs: float, low: float = DEFAULT_LOW_HZ, high: float = DEFAULT_HIGH_HZ,
+    fs: float,
+    low: float = DEFAULT_LOW_HZ,
+    high: float = DEFAULT_HIGH_HZ,
     order: int = DEFAULT_ORDER,
 ) -> np.ndarray:
     """SOS coefficients of the 4th-order Butterworth bandpass filter."""
@@ -29,8 +31,11 @@ def butter_bandpass_sos(
 
 
 def bandpass_filter(
-    x: np.ndarray, fs: float, low: float = DEFAULT_LOW_HZ,
-    high: float = DEFAULT_HIGH_HZ, order: int = DEFAULT_ORDER,
+    x: np.ndarray,
+    fs: float,
+    low: float = DEFAULT_LOW_HZ,
+    high: float = DEFAULT_HIGH_HZ,
+    order: int = DEFAULT_ORDER,
 ) -> np.ndarray:
     """Zero-phase bandpass filtering: ``y[n] = BandpassFilter(x[n])``.
 

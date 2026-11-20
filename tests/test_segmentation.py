@@ -23,7 +23,7 @@ def test_segment_content_matches_r_window():
     r = [3600]
     seg = extract_segments(x, fs, r)[0]
     start = int(r[0]) - round(0.25 * fs)
-    assert np.allclose(seg, x[start:start + len(seg)])
+    assert np.allclose(seg, x[start : start + len(seg)])
 
 
 def test_segment_at_boundary_is_clamped():
@@ -64,6 +64,7 @@ def test_extract_beats_alignment_preserved():
     # segment keeps its original annotation index, position and AAMI label.
     from ecg_robust.annotations import annotate_annotations
     from ecg_robust.segmentation import extract_beats
+
     fs = 360.0
     codes = ["N", "T", "A", "V", "?", "Q"]
     samples = [3600, 7200, 10800, 14400, 18000, 21600]
@@ -78,12 +79,15 @@ def test_extract_beats_alignment_preserved():
         assert beat.aami_class == rec.aami_class
         assert beat.status == rec.status
         # segment is x[r_i - 0.25*fs : r_i + 0.45*fs] (clamped at 0)
-        assert np.allclose(beat.segment, x[beat.r_sample - 90: beat.r_sample - 90 + len(beat.segment)])
+        assert np.allclose(
+            beat.segment, x[beat.r_sample - 90 : beat.r_sample - 90 + len(beat.segment)]
+        )
 
 
 def test_extract_beats_dropped_segments_do_not_shift_alignment():
     from ecg_robust.annotations import annotate_annotations
     from ecg_robust.segmentation import extract_beats
+
     fs = 360.0
     recs = annotate_annotations(["N", "N"], samples=[3600, 7200])
     # signal long enough for the first beat only -> second segment dropped

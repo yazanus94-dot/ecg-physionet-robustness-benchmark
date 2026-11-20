@@ -1,9 +1,13 @@
 """Tests for 4th-order Butterworth bandpass filtering and normalization."""
 
 import numpy as np
-from scipy.signal import butter, sosfiltfilt
+from scipy.signal import sosfiltfilt
 
-from ecg_robust.preprocessing import bandpass_filter, butter_bandpass_sos, normalize_segment
+from ecg_robust.preprocessing import (
+    bandpass_filter,
+    butter_bandpass_sos,
+    normalize_segment,
+)
 
 FS = 500.0
 N = 5000
@@ -11,7 +15,9 @@ N = 5000
 
 def _test_signal():
     t = np.arange(N) / FS
-    return np.sin(2 * np.pi * 50 * t) + 0.1 * np.sin(2 * np.pi * 100 * t) + 5.0  # DC + passband + noise
+    return (
+        np.sin(2 * np.pi * 50 * t) + 0.1 * np.sin(2 * np.pi * 100 * t) + 5.0
+    )  # DC + passband + noise
 
 
 def test_filter_removes_dc():

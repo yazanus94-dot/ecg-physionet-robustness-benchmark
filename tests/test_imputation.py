@@ -14,11 +14,13 @@ def test_pipeline_imputer_fit_on_train_only():
     X_tr = np.array([[1.0, 5.0], [2.0, 5.0], [3.0, 5.0], [4.0, 5.0]])
     y_tr = np.array(["N", "N", "S", "S"])
     X_va = np.array([[np.nan, 7.0]])
-    pipe = Pipeline([
-        ("imputer", SimpleImputer(strategy="median")),
-        ("scaler", StandardScaler()),
-        ("model", DummyClassifier()),
-    ])
+    pipe = Pipeline(
+        [
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler()),
+            ("model", DummyClassifier()),
+        ]
+    )
     pipe.fit(X_tr, y_tr)
     # Imputer statistics come from the training fold only (median of [1,2,3,4]).
     assert pipe.named_steps["imputer"].statistics_[0] == pytest.approx(2.5)
@@ -29,12 +31,14 @@ def test_pipeline_imputer_fit_on_train_only():
 
 
 def test_all_model_pipelines_include_imputer():
-    for name, model in build_models().items():
-        pipe = Pipeline([
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler", StandardScaler()),
-            ("model", model),
-        ])
+    for model in build_models().values():
+        pipe = Pipeline(
+            [
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+                ("model", model),
+            ]
+        )
         assert "imputer" in pipe.named_steps
         assert "scaler" in pipe.named_steps
         assert "model" in pipe.named_steps

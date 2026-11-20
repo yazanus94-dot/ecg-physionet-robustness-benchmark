@@ -51,8 +51,11 @@
       "234"
     ],
     "n_records": 48,
-    "total_beats_annotated": 112647,
+    "n_reserved_beats": 112,
+    "max_beats_per_class": 1000,
+    "total_beats_annotated": 109494,
     "total_beats_aami": 4803,
+    "total_beats_mapped_full": 109494,
     "class_counts": {
       "N": 90631,
       "Q": 8043,
@@ -61,6 +64,7 @@
       "F": 803
     },
     "sampling_frequency_hz": 360,
+    "sampling_frequencies_hz": [],
     "nstdb": [
       "118e00",
       "118e06",

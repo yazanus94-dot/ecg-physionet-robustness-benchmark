@@ -53,10 +53,17 @@ def test_run_noise_sweep_produces_expected_columns():
     X = pd.DataFrame([extract_features(s, 360.0) for s in clean])
     for model in models.values():
         model.fit(X, labels)
-    out = run_noise_sweep(models, clean, labels, noise_realizations,
-                          fs=360, snrs=[24.0, 6.0])
-    assert {"snr_db", "model", "accuracy", "macro_f1",
-            "sensitivity_macro", "balanced_accuracy"} <= set(out.columns)
+    out = run_noise_sweep(
+        models, clean, labels, noise_realizations, fs=360, snrs=[24.0, 6.0]
+    )
+    assert {
+        "snr_db",
+        "model",
+        "accuracy",
+        "macro_f1",
+        "sensitivity_macro",
+        "balanced_accuracy",
+    } <= set(out.columns)
     assert set(out["snr_db"]) == {24.0, 6.0}
     assert set(out["model"]) == set(models)
     assert ((out["accuracy"] >= 0) & (out["accuracy"] <= 1)).all()
@@ -79,7 +86,7 @@ def test_extract_nstdb_noise_requires_download():
         pytest.skip("NSTDB present; download-dependent test not applicable")
     from ecg_robust.noise import extract_nstdb_noise
 
-    with pytest.raises(Exception):
+    with pytest.raises(FileNotFoundError):
         extract_nstdb_noise("118", 360.0)
 
 

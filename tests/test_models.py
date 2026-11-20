@@ -1,7 +1,6 @@
 """Tests for model construction and training."""
 
 import numpy as np
-import pytest
 
 from ecg_robust.models import build_models
 
@@ -13,9 +12,15 @@ def _toy_data(n=60, n_feat=4, seed=0):
     return X, y
 
 
-def test_build_models_has_three_models():
+def test_build_models_has_five_primary_models():
     models = build_models(random_state=42)
-    assert set(models) == {"dummy", "random_forest", "svm_rbf"}
+    assert set(models) == {
+        "dummy",
+        "logistic_regression",
+        "random_forest",
+        "hist_gradient_boosting",
+        "svm_rbf",
+    }
 
 
 def test_dummy_most_frequent_baseline():
@@ -63,3 +68,29 @@ def test_random_forest_has_feature_importances():
     X, y = _toy_data()
     model = build_models()["random_forest"].fit(X, y)
     assert model.feature_importances_.shape == (X.shape[1],)
+
+
+def test_logistic_regression_trains_and_predicts():
+    X, y = _toy_data()
+    model = build_models()["logistic_regression"].fit(X, y)
+    pred = model.predict(X)
+    assert len(pred) == len(X)
+    assert set(np.unique(pred)) <= set(y)
+
+
+def test_hist_gradient_boosting_trains_and_predicts():
+    X, y = _toy_data()
+    model = build_models()["hist_gradient_boosting"].fit(X, y)
+    pred = model.predict(X)
+    assert len(pred) == len(X)
+    assert set(np.unique(pred)) <= set(y)
+
+
+def test_all_five_primary_models_present():
+    assert set(build_models()) == {
+        "dummy",
+        "logistic_regression",
+        "random_forest",
+        "hist_gradient_boosting",
+        "svm_rbf",
+    }

@@ -60,6 +60,8 @@ def extract_features(
     n = len(seg)
     if n < 4:
         raise ValueError("segment too short for feature extraction")
+    if not np.all(np.isfinite(seg)):
+        raise ValueError("segment contains non-finite values (missing/invalid)")
 
     half = n // 2
     baseline = float(np.mean(seg[: max(1, int(0.05 * n))]))
@@ -68,12 +70,16 @@ def extract_features(
     rise_s = 0.0
     if half > 0:
         target_rise = float(seg[:half].max())
-        idx = int(np.argmax(seg[:half] >= target_rise - 1e-9 * (abs(target_rise) + 1.0)))
+        idx = int(
+            np.argmax(seg[:half] >= target_rise - 1e-9 * (abs(target_rise) + 1.0))
+        )
         rise_s = idx / fs
     fall_s = 0.0
     if half < n:
         target_fall = float(seg[half:].max())
-        idx2 = half + int(np.argmax(seg[half:] >= target_fall - 1e-9 * (abs(target_fall) + 1.0)))
+        idx2 = half + int(
+            np.argmax(seg[half:] >= target_fall - 1e-9 * (abs(target_fall) + 1.0))
+        )
         fall_s = (n - idx2) / fs
     n_zc = int(np.sum(np.signbit(seg[1:]) != np.signbit(seg[:-1])))
 
@@ -84,7 +90,9 @@ def extract_features(
     total = float(X.sum())
     centroid = float(np.sum(freqs * X) / total) if total > 0 else 0.0
     mean_x = float(X.mean())
-    flatness = float(np.exp(np.mean(np.log(X + 1e-300))) / mean_x) if mean_x > 0 else 0.0
+    flatness = (
+        float(np.exp(np.mean(np.log(X + 1e-300))) / mean_x) if mean_x > 0 else 0.0
+    )
     f_peak = float(freqs[int(np.argmax(X))]) if len(freqs) else 0.0
 
     feats = {
@@ -92,7 +100,7 @@ def extract_features(
         "std": float(seg.std()),
         "min": float(seg.min()),
         "max": float(seg.max()),
-        "energy": float(np.sum(seg ** 2)),
+        "energy": float(np.sum(seg**2)),
         "peak_amplitude": float(np.max(np.abs(seg))),
         "duration_s": float(n / fs),
         "rise_time_s": float(rise_s),
@@ -101,7 +109,7 @@ def extract_features(
         "spectral_centroid": centroid,
         "spectral_flatness": flatness,
         "fft_peak_frequency": f_peak,
-        "fft_total_energy": float(np.sum(X ** 2)),
+        "fft_total_energy": float(np.sum(X**2)),
         "skew": float(skew(seg, bias=False)),
         "kurtosis": float(kurtosis(seg, bias=False)),
     }

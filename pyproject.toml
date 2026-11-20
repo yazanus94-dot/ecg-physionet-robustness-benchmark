@@ -28,3 +28,18 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_ignores = false
+
+[[tool.mypy.overrides]]
+module = [
+    "sklearn.*",
+    "wfdb",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "sklearn"
+follow_imports = "skip"

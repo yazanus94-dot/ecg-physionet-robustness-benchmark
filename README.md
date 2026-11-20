@@ -34,7 +34,7 @@ Method points (spec-corrections, see the technical report):
   118e00, 118e06, 118e12, 118e18, 118e24, 118e_6, 119e00, 119e06, 119e12,
   119e18, 119e24, 119e_6, bw, em, ma).
 - Beats segmented via reference annotations (`x[r_i - 0.25*fs : r_i + 0.45*fs]`):
-  112,647 segments; AAMI-mapped beats used in the feature matrix: 4,803
+  109,494 segments; AAMI-mapped beats used in the feature matrix: 4,803
   (computational cap of 1,000 beats per AAMI class; full class distribution of
   mapped beats: N=90,631, Q=8,043, V=7,236, S=2,781, F=803).
 - Annotations excluded (known MITDB symbols not in the AAMI map): 2,704;
@@ -47,13 +47,17 @@ Mean over the five folds (`reports/results/cv_metrics.csv`):
 | Model | Accuracy | Precision (macro) | Recall (macro) | Sensitivity (macro) | Specificity (macro) | F1 (macro) | F1 (weighted) | Balanced Accuracy |
 |---|---|---|---|---|---|---|---|---|
 | dummy | 0.1149 | 0.0230 | 0.1600 | 0.1600 | 0.8000 | 0.0399 | 0.0302 | 0.1600 |
-| random_forest | 0.4404 | 0.4653 | 0.4118 | 0.4118 | 0.8597 | 0.3522 | 0.3958 | 0.4339 |
-| svm_rbf | 0.4596 | 0.4651 | 0.4177 | 0.4177 | 0.8641 | 0.3837 | 0.4395 | 0.4381 |
+| hist_gradient_boosting | 0.6253 | 0.5924 | 0.5632 | 0.5632 | 0.9077 | 0.5303 | 0.6096 | 0.5880 |
+| logistic_regression | 0.5680 | 0.5338 | 0.5301 | 0.5301 | 0.8940 | 0.4935 | 0.5711 | 0.5558 |
+| random_forest | 0.5490 | 0.5784 | 0.5259 | 0.5259 | 0.8873 | 0.4834 | 0.5247 | 0.5514 |
+| svm_rbf | 0.5770 | 0.5485 | 0.5315 | 0.5315 | 0.8942 | 0.4979 | 0.5601 | 0.5561 |
 
-- Best CV accuracy: **0.4596** (svm_rbf).
+- Best CV accuracy: **0.6253** (hist_gradient_boosting).
 - CV bullet points: DummyClassifier (most_frequent): accuracy **0.1149**,
-  macro F1 0.0399; RandomForestClassifier: accuracy **0.4404**, macro F1
-  0.3522; RBF-SVM: accuracy **0.4596**, macro F1 0.3837.
+  macro F1 0.0399; HistGradientBoostingClassifier: accuracy **0.6253**,
+  macro F1 0.5303; LogisticRegression: accuracy **0.5680**, macro F1
+  0.4935; RandomForestClassifier: accuracy **0.5490**, macro F1 0.4834;
+  RBF-SVM: accuracy **0.5770**, macro F1 0.4979.
 
 ### Noise robustness, synthetic mixtures (actual, out-of-fold)
 
@@ -64,11 +68,17 @@ levels of the **out-of-fold** models scored on held-out validation beats
 
 | Model | Accuracy | Macro F1 | Macro Sensitivity | Balanced Accuracy |
 |---|---|---|---|---|
-| dummy | 0.1149 | 0.0399 | 0.1600 | 0.1600 |
-| random_forest | 0.3312 | 0.2312 | 0.3092 | 0.3260 |
-| svm_rbf | 0.3519 | 0.2812 | 0.3325 | 0.3499 |
+| dummy | 0.2151 | 0.0670 | 0.1600 | 0.1600 |
+| hist_gradient_boosting | 0.4117 | 0.3007 | 0.3759 | 0.3925 |
+| logistic_regression | 0.4972 | 0.3892 | 0.4094 | 0.4251 |
+| random_forest | 0.4955 | 0.3799 | 0.4345 | 0.4527 |
+| svm_rbf | 0.5437 | 0.4320 | 0.4674 | 0.4845 |
 
-### Recorded-noise evaluation (actual; NSTDB-annotated beats)
+Every model in a fold/SNR is scored on the **identical** noisy samples
+(fairness regression tests); the noise-realization rng seed and the
+achieved SNR per level are recorded in `reports/results/noise_config.json`.
+
+### Recorded-noise evaluation (actual; NSTDB annotations as truth)
 
 All 15 NSTDB records classified with the final models (trained excluding the
 reserved records 118/119), evaluated against the NSTDB record annotations
@@ -77,13 +87,25 @@ reserved records 118/119), evaluated against the NSTDB record annotations
 | Model | Accuracy | Macro F1 | Macro Sensitivity | Balanced Accuracy |
 |---|---|---|---|---|
 | dummy | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
-| random_forest | 0.4820 | 0.1903 | 0.2336 | 0.5340 |
-| svm_rbf | 0.4221 | 0.1741 | 0.2212 | 0.5085 |
+| hist_gradient_boosting | 0.6149 | 0.2517 | 0.2950 | 0.6449 |
+| logistic_regression | 0.5023 | 0.2447 | 0.2462 | 0.5552 |
+| random_forest | 0.5012 | 0.2074 | 0.2527 | 0.5682 |
+| svm_rbf | 0.5089 | 0.2043 | 0.2516 | 0.5669 |
 
 (These are real recorded-noise numbers, not synthetic mixtures. The dummy
-predicts the most frequent class of the final training data — Q — and the
-NSTDB stress records contain no paced (Q) beats, so its accuracy is 0.0;
-the true/predicted beat counts per record are in the CSV.)
+predicts the most frequent class of the final training data. Records without
+valid ground truth — `bw`, `em`, `ma` (no usable annotations; R-peak
+fallback) — report predictions and descriptive statistics only: `n_beats`,
+`predicted_class_counts`, `truth_source`; their metric columns are absent and
+are never invented. Per-record beat/truth counts are in the CSV; final models
+were trained excluding the reserved records 118/119.)
+
+### Expert reference task
+
+`tasks/ecg_arrhythmia_robustness/` — a portfolio-ready expert task with
+`TASK.md`, a validated `reference_solution.py`, an automated `grader.py`,
+`expected_output.json` and `RUBRIC.md` — independently understandable, with
+synthetic fixtures (no proprietary raw data). `python grader.py` passes.
 
 ## Project structure
 
@@ -103,9 +125,12 @@ the true/predicted beat counts per record are in the CSV.)
 │   │                         #   class_distribution, ecg_classes_comparison,
 │   │                         #   confusion_matrix_*.png, model_performance, clean_vs_noisy,
 │   │                         #   snr_vs_*.png, noise_performance.png
-│   └── results/              # cv_metrics.csv, noise_results.csv,
+│   └── results/              # cv_metrics.csv, noise_results.csv, noise_config.json,
 │                             #   nstdb_evaluation.csv, nstdb_details.json,
-│                             #   per_class_evaluation.json, dataset_summary.json
+│                             #   per_class_oof.json, per_class_train_diagnostics.json,
+│                             #   dataset_summary.json, fold_class_counts.json,
+│                             #   confusion_matrices.json, feature_ablation.csv,
+│                             #   class_weights_study.csv, hyperparameter_search.json
 ├── requirements.txt / pyproject.toml / environment.yml
 ├── .github/workflows/test.yml # CI: pytest on push/PR
 └── LICENSE, CITATION.cff, .gitignore
@@ -119,6 +144,15 @@ python -m ecg_robust.pipeline            # downloads mitdb + nstdb into data/raw
 python -m pytest -q                      # unit tests
 ```
 
+Dev tools (lint/typecheck):
+
+```bash
+pip install -r dev-requirements.txt
+python -m ruff check src tests
+python -m ruff format --check src tests
+python -m mypy src
+```
+
 Or in one command:
 
 ```bash
@@ -128,29 +162,48 @@ python scripts/reproduce_pipeline.py
 ## Method summary (see [reports/TECHNICAL_REPORT.md](reports/TECHNICAL_REPORT.md) for details and formulas)
 
 - **Data:** MIT-BIH Arrhythmia Database (48 records, fs = 360 Hz) + MIT-BIH
-  Noise Stress Test Database (records 118, 119). Raw data never committed.
+  Noise Stress Test Database (15 records: 118e00…119e_6, bw, em, ma). Raw
+  data never committed.
 - **AAMI mapping:** N={N,L,R,e,j}, S={A,a,J,S}, V={V,E}, F={F}, Q={/,f,Q};
-  excluded/unknown annotations reported.
+  excluded/unknown annotations reported (`annotate_annotations`).
 - **Preprocessing:** 4th-order Butterworth 0.5–40 Hz (`sosfiltfilt`,
   zero-phase), heartbeat segment `x[r_i − 0.25·fs : r_i + 0.45·fs]`
-  (252 samples at fs=360), training-fitted normalization.
+  (252 samples at fs=360), training-fitted normalization; per-fold
+  median imputation inside the sklearn pipeline.
 - **Features:** mean, std, min/max, energy `E=Σx²`, peak amplitude,
-  morphology (rise/fall times, zero crossings), RR_i `=(r_i−r_{i−1})/fs`,
-  RR ratios, duration, spectral features, and statistical features
-  (skew, kurtosis, percentiles).
+  morphology (rise/fall times, zero crossings), RR_i `=(r_i−r_{i−1})/fs`
+  (spec #1 indexing), RR ratios, duration, spectral features, and
+  statistical features (skew, kurtosis, percentiles).
 - **Validation:** 5-fold `StratifiedGroupKFold` on recording IDs (201/202
-  grouped); per-fold scaling/preprocessing; no patient leakage.
+  grouped); per-fold scaling/imputation; no patient leakage (verified at run
+  time). All primary metrics are **out-of-fold** (spec #2).
+- **NSTDB recorded-noise evaluation:** predictions for every NSTDB record;
+  metrics only where valid ground truth exists (`n_valid_truth`); records
+  without usable annotations report predictions only — metrics are never
+  invented (`nstdb_evaluation.csv`, `nstdb_details.json`).
+- **Reproducibility:** seeds are fixed (42); the noise-realization rng seed
+  and the per-SNR achieved SNR are recorded in
+  `reports/results/noise_config.json`; the modeling sample is the
+  per-class-capped design (≤ 1,000 beats/AAMI class, seed 42; the full
+  mapped-beat dataset is in `data/features/ecg_features.csv`).
 - **Metrics:** accuracy, precision, recall, sensitivity, specificity,
   macro F1, weighted F1, balanced accuracy, per-class performance and
-  confusion matrices.
+  confusion matrices (OOF primary, training diagnostics separately labeled).
 - **Noise:** NSTDB-based synthetic mixtures at SNR
   `10·log10(P_signal/P_noise)` for {24, 18, 12, 6, 0, −6 dB}; clean vs noisy
-  at identical positions; plots of SNR vs macro F1 / sensitivity /
+  at identical positions; same noisy samples shared across classifiers
+  within a fold (spec #4); plots of SNR vs macro F1 / sensitivity /
   balanced accuracy; real recorded-noise evaluation of NSTDB records
-  (118, 119) — labeled as such, not presented as official-noise claims.
-- **Classifiers:** DummyClassifier (most_frequent), RandomForest
-  (n_estimators=100, class_weight="balanced"), RBF-SVM (C=1.0,
-  class_weight="balanced").
+  (118e00…119e_6, bw, em, ma) — labeled as such, not presented as
+  official-noise claims; reserved records 118/119 excluded from final
+  training (spec #3).
+- **Classifiers (spec Phase 6 — stronger experimental comparison):**
+  DummyClassifier (most_frequent), LogisticRegression (C-balanced),
+  RandomForest (n_estimators=100, class_weight="balanced"),
+  HistGradientBoosting (native imbalance handling), RBF-SVM
+  (C=1.0, class_weight="balanced"). Primary CV results + model comparison
+  in `reports/results/cv_metrics.csv`, `reports/results/class_weights_study.csv`,
+  `reports/results/feature_ablation.csv`, `reports/results/hyperparameter_search.json`.
 
 ## License & attribution
 
@@ -160,5 +213,16 @@ licensing and are never committed. See [CITATION.cff](CITATION.cff).
 
 ## Limitations
 
-Historical data; class imbalance (macro/balanced metrics used); noise-cohort
-size (2 NSTDB records; 8 realizations); research-grade, not clinical.
+Benchmarking/research tool, not a clinical diagnostic system: beat-level AAMI
+classification is research-grade and the outputs must not be used for
+clinical decisions. Data is coarse/older leads (MITDB); class imbalance is
+handled with macro/balanced metrics and class weights (see
+`class_weights_study.csv`); the noise cohort is small (the recorded-noise
+evaluation covers the NSTDB records); the per-class modeling sample is capped
+at 1,000 beats/class (computational constraint for the SVM comparison); where
+ground truth cannot be established the recorded-noise table reports
+predictions and descriptive statistics only. Spec-correctness notes:
+annotation/segment alignment is explicit (spec #1); primary metrics are
+out-of-fold (spec #2); NSTDB recorded-noise labels are alignment-aware
+(spec #3); noise is fair across classifiers (spec #4); annotation
+validation is enforced (spec #5).

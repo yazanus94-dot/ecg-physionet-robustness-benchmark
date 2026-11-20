@@ -63,8 +63,9 @@ def _normalize_record(out):
     return out  # legacy Record object
 
 
-def _read_local(record_id: str, directory: Path, fn_name: str,
-                extension: str | None = None):
+def _read_local(
+    record_id: str, directory: Path, fn_name: str, extension: str | None = None
+):
     """Read a WFDB record/annotation from the local downloaded files.
 
     ``extension`` is required by ``wfdb.rdann`` (e.g. ``"atr"`` for MITDB

@@ -25,10 +25,13 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import accuracy_score, balanced_accuracy_score, precision_recall_fscore_support
+from sklearn.metrics import (
+    accuracy_score,
+    balanced_accuracy_score,
+    precision_recall_fscore_support,
+)
 
-from .annotations import AAMI_MAP, CLASSES
-from .dataset import load_nstdb_signal
+from .annotations import AAMI_MAP, CLASSES, AnnotationRecord
 from .features import extract_features
 from .preprocessing import bandpass_filter
 
@@ -63,8 +66,8 @@ def scale_noise(noise, snr_db: float, signal):
     """Scale ``noise`` so that SNR(signal, noise) == snr_db."""
     signal = np.asarray(signal, dtype=float)
     noise = np.asarray(noise, dtype=float)
-    ps = float(np.mean(signal ** 2))
-    pn = float(np.mean(noise ** 2))
+    ps = float(np.mean(signal**2))
+    pn = float(np.mean(noise**2))
     if pn <= 0 or ps <= 0:
         raise ValueError("signal and noise must have nonzero power")
     scale = math.sqrt(ps / pn) * 10.0 ** (-snr_db / 20.0)
@@ -79,15 +82,31 @@ def add_noise(signal, noise, snr_db: float) -> tuple[np.ndarray, float]:
     return noisy, estimate_snr_db(signal, noise_scaled)
 
 
-def extract_nstdb_noise(record_id: str, fs: float, directory=None) -> np.ndarray:
-    """Load an NSTDB recording as the noise realization (bandpassed)."""
-    from .dataset import NSTDB_DIR, load_nstdb_signal
+def extract_nstdb_noise(
+    record_id: str, fs: float | None = None, directory=None
+) -> np.ndarray:
+    """Load an NSTDB recording as the noise realization (bandpassed).
 
-    sig = load_nstdb_signal(record_id, directory or NSTDB_DIR)
-    sig = np.asarray(sig, dtype=float)
+    The sampling frequency is read from the record itself; when ``fs`` is
+    given it must match the record's own fs (spec #6: verification against
+    the actual record rather than an assumption).
+    """
+    from .dataset import NSTDB_DIR, _read_local
+
+    rec = _read_local(record_id, directory or NSTDB_DIR, "rdsamp")
+    sig = np.asarray(
+        rec.samples if hasattr(rec, "samples") else rec.to_dataframe().to_numpy()
+    )
+    fs_rec = int(rec.fs)
     if sig.ndim > 1:
         sig = sig[:, 0]  # first channel
-    return bandpass_filter(sig, fs)
+    if fs is None:
+        fs = fs_rec
+    elif int(fs) != fs_rec:
+        raise ValueError(
+            f"record {record_id} has fs {fs_rec} Hz, not the requested {fs} Hz"
+        )
+    return bandpass_filter(sig, fs_rec)
 
 
 def run_noise_sweep(
@@ -121,15 +140,18 @@ def run_noise_sweep(
                 noise = noise_realizations[i % len(noise_realizations)]
                 noise_seg = np.resize(noise, len(seg))
                 # small deterministic phase jitter for variety
-                shift = int(rng.integers(-max(1, len(noise_seg) // 8),
-                                          max(2, len(noise_seg) // 8)))
+                shift = int(
+                    rng.integers(
+                        -max(1, len(noise_seg) // 8), max(2, len(noise_seg) // 8)
+                    )
+                )
                 noise_seg = np.roll(noise_seg, shift)
                 noisy, _achieved = add_noise(seg, noise_seg, snr)
             feats.append(extract_features(noisy, fs))
         X = _align_features(pd.DataFrame(feats), feature_columns, feature_defaults)
         for name, model in models.items():
             pred = np.asarray(model.predict(X))
-            prec, rec, f1, _sup = precision_recall_fscore_support(
+            _prec, rec, f1, _sup = precision_recall_fscore_support(
                 np.asarray(labels), pred, labels=CLASSES, zero_division=0
             )
             rows.append(
@@ -139,65 +161,94 @@ def run_noise_sweep(
                     "accuracy": float(accuracy_score(labels, pred)),
                     "macro_f1": float(np.mean(f1)),
                     "sensitivity_macro": float(np.mean(rec)),
-                    "balanced_accuracy": float(
-                        balanced_accuracy_score(labels, pred)
-                    ),
+                    "balanced_accuracy": float(balanced_accuracy_score(labels, pred)),
                 }
             )
     return pd.DataFrame(rows)
 
 
-def noisy_heldout_metrics(
-    pipe: Any,
-    y_val: np.ndarray,
+def generate_noisy_features(
     clean_segments: list[np.ndarray],
     noise_realizations: list[np.ndarray],
     snrs: list[float],
     fs: float,
+    rng: np.random.Generator,
     feature_columns: list[str] | None = None,
-    seed: int = 42,
-) -> pd.DataFrame:
-    """Evaluate a fitted pipeline on noisy versions of held-out beats.
+) -> tuple[dict, dict]:
+    """Generate the noisy feature matrices for each SNR **once** (fair design).
 
-    For each SNR level, each held-out beat segment is mixed with a cycled
-    NSTDB noise realization (deterministic seeded jitter), features are
-    re-extracted, and ``pipe.predict`` is applied — i.e., out-of-fold models
-    evaluate their corresponding held-out validation beats only (spec #3).
-    Returns a DataFrame with ``snr_db``, ``n_beats``, ``accuracy``,
-    ``macro_f1``, ``sensitivity_macro`` and ``balanced_accuracy``.
+    For each SNR level, every clean beat segment is mixed with a cycled NSTDB
+    noise realization (deterministic phase jitter from ``rng`` — a single rng
+    state per call, shared across all models), and features are re-extracted.
+
+    Returns ``(noisy_by_snr, achieved_by_snr)``: ``noisy_by_snr[snr]`` is the
+    (aligned) feature DataFrame used by *every* model in the same fold — the
+    same noisy validation samples are shared across classifiers (spec #4) —
+    and ``achieved_by_snr[snr]`` is the mean achieved SNR of the noisy set
+    (requested vs achieved SNR consistency is verifiable from the recorded
+    ``achieved_snr_db`` values; ``add_noise`` scales the noise so that
+    ``SNR(signal, noise) == snr_db``).
     """
-    rng = np.random.default_rng(seed)
-    rows = []
-    y_val = np.asarray(y_val)
+    noisy_by_snr: dict[float, pd.DataFrame] = {}
+    achieved_by_snr: dict[float, float] = {}
     for snr in snrs:
         feats = []
+        achieveds = []
         for i, seg in enumerate(clean_segments):
             if not noise_realizations:
                 noisy = np.asarray(seg, dtype=float)
+                achieveds.append(float("inf"))
             else:
                 noise = noise_realizations[i % len(noise_realizations)]
                 noise_seg = np.resize(noise, len(seg))
-                shift = int(rng.integers(-max(1, len(noise_seg) // 8),
-                                          max(2, len(noise_seg) // 8)))
+                # small deterministic phase jitter (one rng call — shared across models)
+                shift = int(
+                    rng.integers(
+                        -max(1, len(noise_seg) // 8), max(2, len(noise_seg) // 8)
+                    )
+                )
                 noise_seg = np.roll(noise_seg, shift)
-                noisy, _achieved = add_noise(seg, noise_seg, snr)
+                noisy, achieved = add_noise(seg, noise_seg, snr)
+                achieveds.append(float(achieved))
             feats.append(extract_features(noisy, fs))
         Xn = _align_features(pd.DataFrame(feats), feature_columns, None)
-        pred = np.asarray(pipe.predict(Xn))
-        prec, rec, f1, _sup = precision_recall_fscore_support(
-            y_val, pred, labels=CLASSES, zero_division=0
+        noisy_by_snr[float(snr)] = Xn
+        achieved_by_snr[float(snr)] = (
+            float(np.mean(achieveds)) if achieveds else float("nan")
         )
-        rows.append(
-            {
-                "snr_db": float(snr),
-                "n_beats": int(len(pred)),
-                "accuracy": float(accuracy_score(y_val, pred)),
-                "macro_f1": float(np.mean(f1)),
-                "sensitivity_macro": float(np.mean(rec)),
-                "balanced_accuracy": float(balanced_accuracy_score(y_val, pred)),
-            }
-        )
-    return pd.DataFrame(rows)
+    return noisy_by_snr, achieved_by_snr
+
+
+def _mitdb_reference_compatible(
+    m_rec, m_ann, sig: np.ndarray, fs_rec: int
+) -> dict[str, Any] | None:
+    """Verify that a matched clean MITDB record is a valid ground truth for
+    the NSTDB recording (spec #2).
+
+    Returns a small compatibility dict when the reference is compatible —
+    same sampling frequency, at least one AAMI-mapped reference annotation,
+    and every reference R position inside the NSTDB signal bounds —
+    otherwise ``None``: when the annotation/signal sample-count correspondence
+    cannot be established, the reference must not be used as ground truth.
+    """
+    if int(m_rec.fs) != int(fs_rec):
+        return None
+    syms = [str(s) for s in np.asarray(m_ann.symbol)]
+    pos = np.asarray(m_ann.sample, dtype=int)
+    if len(pos) != len(syms) or len(pos) == 0:
+        return None
+    if int(pos.min()) < 0 or int(pos.max()) >= len(sig):
+        return None
+    n_mapped = int(sum(s in AAMI_MAP for s in syms))
+    if n_mapped == 0:
+        return None
+    return {
+        "fs_match": True,
+        "n_reference_annotations": len(pos),
+        "n_mapped_reference_annotations": n_mapped,
+        "nstdb_n_samples": len(sig),
+        "max_reference_r_sample": int(pos.max()),
+    }
 
 
 def run_nstdb_evaluation(
@@ -208,116 +259,215 @@ def run_nstdb_evaluation(
     segment_args: tuple[float, float] | None = None,
     feature_columns: list[str] | None = None,
     feature_defaults: dict[str, float] | None = None,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
     """Classify segmented NSTDB recordings (recorded-noise evaluation).
 
-    Each NSTDB record is loaded, its annotations used to segment the
-    signal (with an R-peak fallback when annotations are unavailable),
-    features are extracted, and the fitted models predict. Returns a
-    DataFrame with ``record``, ``model``, ``accuracy``, ``macro_f1``,
-    ``sensitivity_macro``, ``balanced_accuracy``, plus the segmented
-    signals and annotation codes saved for plotting
-    (``signals``, ``codes`` columns hold lists of arrays/strings).
+    Spec #3: annotation-aware — the labels travel with the aligned beats
+    via :func:`ecg_robust.annotations.annotate_annotations` +
+    :func:`ecg_robust.segmentation.extract_beats` (original annotation
+    index/sample/symbol preserved; no truncation or assumed alignment after
+    filtering). RR interval/ratio features use the clean-pipeline indexing
+    convention (``rr_features_for_valid_beats``).
+
+    Ground truth is established by the first available source, recorded per
+    record as ``truth_source`` (spec #2):
+
+    1. ``"nstdb_annotations"`` — the NSTDB record's own annotations;
+    2. ``"mitdb_reference"`` — the matched clean MITDB record's annotations,
+       when :func:`_mitdb_reference_compatible` accepts the beat/signal
+       correspondence and the reference beats segment the NSTDB signal;
+    3. ``"r_peak_fallback"`` — detected R peaks; **no ground truth**:
+       predictions are reported without inventing metrics.
+
+    The ``fs`` argument is verified against each record's actual fs.
+
+    Returns ``(df, details)``: one row per record × model with ``n_beats``
+    (predicted), ``predicted_class_counts``, ``n_valid_truth``/``n_valid``,
+    ``n_annotations``, ``n_excluded_annotations``,
+    ``n_unknown_annotations``, ``n_unaligned_annotations`` (annotations not
+    aligned to a valid beat), ``truth_source``, and the metrics
+    ``accuracy``/``macro_f1``/``sensitivity_macro``/``balanced_accuracy`` —
+    metrics only where valid reference truth exists. ``details`` is a list of
+    per-record dicts with ``record``, ``n_beats``, ``n_samples``, ``fs``,
+    ``segment_lengths_head``, the alignment counters and ``truth_source``
+    (plus ``mitdb_compat`` when the MITDB reference was used).
     """
-    from .segmentation import extract_segments, rr_intervals, rr_ratios
+    from .annotations import annotate_annotations
+    from .dataset import MITDB_DIR, NSTDB_DIR, _read_local, database_records
+    from .segmentation import extract_beats, rr_features_for_valid_beats
 
-    from .dataset import _read_local
-    from .features import extract_features
-    from .annotations import classify_annotations
-
-    before, after = segment_args or (0.25, 0.45)
+    before, after = segment_args if segment_args is not None else (0.25, 0.45)
     rows = []
     details: list[dict[str, Any]] = []
     for rec_id in nstdb_records:
-        from .dataset import NSTDB_DIR
         rec = _read_local(rec_id, directory or NSTDB_DIR, "rdsamp")
         if hasattr(rec, "samples"):
             sig = np.asarray(rec.samples)
         else:
             sig = rec.to_dataframe().to_numpy()
         fs_rec = int(rec.fs)
+        if fs is not None and int(fs) != fs_rec:
+            raise ValueError(
+                f"record {rec_id} has fs {fs_rec} Hz, not the requested {fs} Hz"
+            )
         sig = sig[:, 0] if sig.ndim > 1 else sig
         sig = bandpass_filter(sig, fs_rec)
+
+        # --- (a) annotation-aware alignment (spec #3) ---
+        truth_source = "r_peak_fallback"
+        mitdb_compat: dict[str, Any] | None = None
+        beats = None
+        annot_recs = None
+        r_pos_full: list[int] = []
         try:
             ann = _read_local(rec_id, directory or NSTDB_DIR, "rdann", extension="atr")
-            r_pos = [int(s) for s in np.asarray(ann.sample)]
             codes = [str(s) for s in np.asarray(ann.symbol)]
-        except Exception:
+            r_pos_full = [int(s) for s in np.asarray(ann.sample)]
+            annot_recs = annotate_annotations(
+                codes, samples=r_pos_full, signal_length=len(sig)
+            )
+            beats = extract_beats(sig, fs_rec, annot_recs, before, after)
+            if beats:
+                truth_source = "nstdb_annotations"
+            else:
+                # NSTDB annotations produced no usable beats: no valid truth.
+                beats = None
+        except Exception:  # noqa: BLE001 -- annotation reading is best-effort
+            beats = None
+
+        # --- (b) fallback: MITDB-matched record (annotated clean reference) ---
+        # Ground truth = the matched clean MITDB record's annotations; the
+        # segments and features come from the NSTDB recording. The
+        # correspondence is accepted only when the two are compatible
+        # (spec #2): same fs, at least one AAMI-mapped reference annotation,
+        # and every reference R position inside the NSTDB signal bounds.
+        if beats is None and rec_id in database_records(MITDB_DIR):
+            try:
+                m_rec, m_ann = (
+                    _read_local(rec_id, MITDB_DIR, "rdsamp"),
+                    _read_local(rec_id, MITDB_DIR, "rdann", extension="atr"),
+                )
+                mitdb_compat = _mitdb_reference_compatible(m_rec, m_ann, sig, fs_rec)
+                if mitdb_compat is not None:
+                    m_codes = [str(s) for s in np.asarray(m_ann.symbol)]
+                    m_r = [int(s) for s in np.asarray(m_ann.sample)]
+                    m_recs = annotate_annotations(m_codes, samples=m_r)
+                    candidate = extract_beats(sig, fs_rec, m_recs, before, after)
+                    if candidate:
+                        beats = candidate
+                        annot_recs = m_recs
+                        r_pos_full = m_r
+                        truth_source = "mitdb_reference"
+            except Exception:  # noqa: BLE001 -- MITDB fallback is best-effort
+                beats = None
+                mitdb_compat = None
+
+        # --- (c) R-peak fallback: no labels — predictions only ---
+        if beats is None:
+            truth_source = "r_peak_fallback"
             from scipy.signal import find_peaks
 
             peaks, _ = find_peaks(-sig, distance=int(fs_rec * 0.6))
-            r_pos = peaks.tolist()
-            codes = []
-        segments = extract_segments(sig, fs_rec, r_pos, before, after)
-        rrs = rr_intervals(r_pos, fs_rec)
-        rr_rat = rr_ratios(rrs)
-        feats, labels_y = [], []
-        for seg in segments:
-            feats.append(extract_features(seg, fs_rec))
-        if not feats:
-            continue
-        X = _align_features(pd.DataFrame(feats), feature_columns, feature_defaults)
-        # labels for metrics: prefer the matched MITDB record; else use the
-        # NSTDB's own annotations (NSTDB records carry beat annotations;
-        # non-AAMI symbols such as onsets map to None and are excluded).
-        from .dataset import MITDB_DIR, database_records
+            r_pos_full = peaks.tolist()
+            annot_recs = [
+                AnnotationRecord(
+                    index=i,
+                    symbol="R",
+                    sample=int(pp),
+                    aami_class=None,
+                    status="unknown",
+                )
+                for i, pp in enumerate(r_pos_full)
+            ]
+            beats = extract_beats(sig, fs_rec, annot_recs, before, after)
 
-        y_true = None
-        if rec_id in database_records(MITDB_DIR):
-            m_rec, m_ann = _read_local(rec_id, MITDB_DIR, "rdsamp"), _read_local(
-                rec_id, MITDB_DIR, "rdann", extension="atr"
-            )
-            if hasattr(m_rec, "samples"):
-                m_sig = np.asarray(m_rec.samples)
-            else:
-                m_sig = m_rec.to_dataframe().to_numpy()
-            m_r = [int(s) for s in np.asarray(m_ann.sample)]
-            m_segs = extract_segments(m_sig[:, 0] if m_sig.ndim > 1 else m_sig,
-                                      int(m_rec.fs), m_r, before, after)
-            m_mapped, _excl, _unk = classify_annotations(
-                [str(s) for s in np.asarray(m_ann.symbol)]
-            )
-            y_true = [c for c in m_mapped][: len(X)]
-        if y_true is None and codes:
-            # NSTDB annotations as truth (may contain None for non-AAMI
-            # symbols such as onset markers — filtered in the metric step).
-            aami_codes = [AAMI_MAP.get(str(s)) for s in codes]
-            if any(v is not None for v in aami_codes):
-                y_true = list(aami_codes[: len(X)])
+        if not beats:
+            continue
+
+        # Features aligned to the beats (spec #3): RR interval/ratio features
+        # use the same indexing convention as the clean pipeline
+        # (`rr_features_for_valid_beats`).
+        valid_beats = [b for b in beats if b.aami_class is not None]
+        rr_seq = rr_features_for_valid_beats(valid_beats, fs_rec)
+        feats = []
+        for beat, (rr_s, rr_r) in zip(valid_beats, rr_seq):
+            feats.append(extract_features(beat.segment, fs_rec, rr_s, rr_r))
+        X = _align_features(pd.DataFrame(feats), feature_columns, feature_defaults)
+
+        y_true = [b.aami_class for b in valid_beats]  # aligned with valid beats
+
+        # Phase 2: record annotation-alignment diagnostics for the record.
+        # ``n_unaligned_annotations`` = annotations that do not correspond to
+        # a retained valid beat (excluded/unknown annotations plus mapped
+        # annotations whose segment was dropped); in the R-peak fallback
+        # path, the detected peaks not retained as beats.
+        n_annotations = len(annot_recs) if annot_recs else 0
+        n_excluded = (
+            int(sum(1 for r in annot_recs if r.status == "excluded"))
+            if annot_recs
+            else 0
+        )
+        n_unknown = (
+            int(sum(1 for r in annot_recs if r.status == "unknown"))
+            if annot_recs
+            else 0
+        )
+        n_valid = len(valid_beats)
+        n_unaligned = int(n_annotations - n_valid)
+
         for name, model in models.items():
-            pred = np.asarray(model.predict(X))
+            if X.shape[0] == 0:
+                # No valid beats to score: sklearn raises on 0-sample input;
+                # report an empty prediction set — no metrics are invented.
+                pred = np.empty(0, dtype=object)
+            else:
+                pred = np.asarray(model.predict(X))
             row = {
                 "record": rec_id,
                 "model": name,
-                "n_beats": int(len(pred)),
-                "predicted_class_counts": {
-                    c: int(np.sum(pred == c)) for c in CLASSES
-                },
+                "n_beats": len(pred),
+                "predicted_class_counts": {c: int(np.sum(pred == c)) for c in CLASSES},
+                "n_valid_truth": n_valid,
+                "n_valid": n_valid,
+                "n_annotations": n_annotations,
+                "n_excluded_annotations": int(n_excluded),
+                "n_unknown_annotations": int(n_unknown),
+                "n_unaligned_annotations": int(n_unaligned),
+                "truth_source": truth_source,
             }
-            if y_true is not None:
-                pairs = [(v, p) for v, p in zip(y_true, pred) if v is not None]
-                if pairs:
-                    yt = np.array([p[0] for p in pairs])
-                    pr = np.array([p[1] for p in pairs])
-                    prec, rec, f1, _sup = precision_recall_fscore_support(
-                        yt, pr, labels=CLASSES, zero_division=0
-                    )
-                    row.update(
-                        {
-                            "accuracy": float(accuracy_score(yt, pr)),
-                            "macro_f1": float(np.mean(f1)),
-                            "sensitivity_macro": float(np.mean(rec)),
-                            "balanced_accuracy": float(
-                                balanced_accuracy_score(yt, pr)
-                            ),
-                        }
-                    )
+            # Metrics only where valid reference truth is available
+            # (spec #3: no truncation, labels genuinely associated with the
+            # evaluated beats).
+            pairs = [(v, pr) for v, pr in zip(y_true, pred) if v is not None]
+            if pairs:
+                yt = np.array([pr[0] for pr in pairs])
+                pr = np.array([pr[1] for pr in pairs])
+                _prec, rec, f1, _sup = precision_recall_fscore_support(
+                    yt, pr, labels=CLASSES, zero_division=0
+                )
+                row.update(
+                    {
+                        "accuracy": float(accuracy_score(yt, pr)),
+                        "macro_f1": float(np.mean(f1)),
+                        "sensitivity_macro": float(np.mean(rec)),
+                        "balanced_accuracy": float(balanced_accuracy_score(yt, pr)),
+                    }
+                )
             rows.append(row)
-        details.append({
+        detail_entry: dict[str, Any] = {
             "record": rec_id,
-            "n_segments": int(len(segments)),
-            "n_samples": int(len(sig)),
+            "n_beats": n_valid,
+            "n_samples": len(sig),
             "fs": int(fs_rec),
-            "segment_lengths_head": [int(len(s)) for s in segments[:8]],
-        })
+            "segment_lengths_head": [len(b.segment) for b in beats[:8]],
+            "n_annotations": n_annotations,
+            "n_valid": n_valid,
+            "n_excluded_annotations": int(n_excluded),
+            "n_unknown_annotations": int(n_unknown),
+            "n_unaligned_annotations": int(n_unaligned),
+            "truth_source": truth_source,
+        }
+        if mitdb_compat is not None:
+            detail_entry["mitdb_compat"] = mitdb_compat
+        details.append(detail_entry)
     return pd.DataFrame(rows), details

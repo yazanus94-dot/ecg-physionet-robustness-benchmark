@@ -1,0 +1,232 @@
+[
+  {
+    "model":"dummy",
+    "fold":0,
+    "best_params":{
+
+    },
+    "search_validation":"no grid (deterministic default)",
+    "best_score_mean_inner_cv":null
+  },
+  {
+    "model":"dummy",
+    "fold":1,
+    "best_params":{
+
+    },
+    "search_validation":"no grid (deterministic default)",
+    "best_score_mean_inner_cv":null
+  },
+  {
+    "model":"dummy",
+    "fold":2,
+    "best_params":{
+
+    },
+    "search_validation":"no grid (deterministic default)",
+    "best_score_mean_inner_cv":null
+  },
+  {
+    "model":"dummy",
+    "fold":3,
+    "best_params":{
+
+    },
+    "search_validation":"no grid (deterministic default)",
+    "best_score_mean_inner_cv":null
+  },
+  {
+    "model":"dummy",
+    "fold":4,
+    "best_params":{
+
+    },
+    "search_validation":"no grid (deterministic default)",
+    "best_score_mean_inner_cv":null
+  },
+  {
+    "model":"hist_gradient_boosting",
+    "fold":0,
+    "best_params":{
+      "max_iter":100
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.6279446388
+  },
+  {
+    "model":"hist_gradient_boosting",
+    "fold":1,
+    "best_params":{
+      "max_iter":100
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.5742023307
+  },
+  {
+    "model":"hist_gradient_boosting",
+    "fold":2,
+    "best_params":{
+      "max_iter":100
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.5837025164
+  },
+  {
+    "model":"hist_gradient_boosting",
+    "fold":3,
+    "best_params":{
+      "max_iter":50
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.5533318369
+  },
+  {
+    "model":"hist_gradient_boosting",
+    "fold":4,
+    "best_params":{
+      "max_iter":50
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.4991126361
+  },
+  {
+    "model":"logistic_regression",
+    "fold":0,
+    "best_params":{
+      "C":0.1
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.6107195465
+  },
+  {
+    "model":"logistic_regression",
+    "fold":1,
+    "best_params":{
+      "C":0.1
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.5360402024
+  },
+  {
+    "model":"logistic_regression",
+    "fold":2,
+    "best_params":{
+      "C":0.1
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.5397353894
+  },
+  {
+    "model":"logistic_regression",
+    "fold":3,
+    "best_params":{
+      "C":0.1
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.5320066847
+  },
+  {
+    "model":"logistic_regression",
+    "fold":4,
+    "best_params":{
+      "C":0.1
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.4228093067
+  },
+  {
+    "model":"random_forest",
+    "fold":0,
+    "best_params":{
+      "max_features":null,
+      "min_samples_leaf":5
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.6174308753
+  },
+  {
+    "model":"random_forest",
+    "fold":1,
+    "best_params":{
+      "max_features":null,
+      "min_samples_leaf":5
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.5431555376
+  },
+  {
+    "model":"random_forest",
+    "fold":2,
+    "best_params":{
+      "max_features":null,
+      "min_samples_leaf":5
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.5459244233
+  },
+  {
+    "model":"random_forest",
+    "fold":3,
+    "best_params":{
+      "max_features":null,
+      "min_samples_leaf":5
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.4718457383
+  },
+  {
+    "model":"random_forest",
+    "fold":4,
+    "best_params":{
+      "max_features":null,
+      "min_samples_leaf":5
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.5137061969
+  },
+  {
+    "model":"svm_rbf",
+    "fold":0,
+    "best_params":{
+      "C":0.1
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.5620524342
+  },
+  {
+    "model":"svm_rbf",
+    "fold":1,
+    "best_params":{
+      "C":10.0
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.5423323825
+  },
+  {
+    "model":"svm_rbf",
+    "fold":2,
+    "best_params":{
+      "C":10.0
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.5101462964
+  },
+  {
+    "model":"svm_rbf",
+    "fold":3,
+    "best_params":{
+      "C":10.0
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.510853157
+  },
+  {
+    "model":"svm_rbf",
+    "fold":4,
+    "best_params":{
+      "C":10.0
+    },
+    "search_validation":"training-fold-only (StratifiedGroupKFold on training data)",
+    "best_score_mean_inner_cv":0.5048648525
+  }
+]

@@ -35,7 +35,9 @@ def test_accuracy_and_sensitivity_formulas():
     # N: TP=3, FN=1 -> recall 0.75; V: TP=0, FN=1 -> recall 0
     assert np.isclose(m["per_class"]["N"]["sensitivity"], 0.75)
     assert np.isclose(m["per_class"]["V"]["sensitivity"], 0.0)
-    assert np.isclose(m["per_class"]["N"]["precision"], 0.75)  # TP=3, FP=1 (idx4 pred N, true V)
+    assert np.isclose(
+        m["per_class"]["N"]["precision"], 0.75
+    )  # TP=3, FP=1 (idx4 pred N, true V)
     assert np.isclose(m["per_class"]["V"]["precision"], 0.0)
 
 

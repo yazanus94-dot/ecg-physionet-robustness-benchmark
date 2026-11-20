@@ -1,0 +1,6 @@
+# Development-only tools for ECG-ROBUST.
+# `pip install -r dev-requirements.txt` (or: `pip install ruff mypy`).
+ruff==0.17.5
+mypy==2.4.1
+pandas-stubs
+scipy-stubs

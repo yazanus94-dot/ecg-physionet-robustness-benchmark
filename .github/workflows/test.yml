@@ -17,3 +17,15 @@ jobs:
       - run: python -m pip install --upgrade pip setuptools wheel
       - run: python -m pip install -e .
       - run: python -m pytest -q --deselect tests/test_dataset.py
+      - name: Run expert benchmark task tests (tasks/ecg_arrhythmia_robustness)
+        run: python -m pytest -q tasks/ecg_arrhythmia_robustness/tests
+      - name: Run the reference grader
+        run: python tasks/ecg_arrhythmia_robustness/grader.py
+      - name: Install dev tools
+        run: python -m pip install -r dev-requirements.txt
+      - name: Lint (ruff check)
+        run: python -m ruff check src tests
+      - name: Format check (ruff format --check)
+        run: python -m ruff format --check src tests
+      - name: Typecheck (mypy src)
+        run: python -m mypy src

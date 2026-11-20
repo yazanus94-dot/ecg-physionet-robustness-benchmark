@@ -1,27 +1,40 @@
 """Machine-learning models for ECG arrhythmia classification.
 
-Models:
+Models (Phase 6 — stronger experimental comparison, no result manipulation):
 - ``DummyClassifier`` (most_frequent baseline, patient-independent).
-- ``RandomForestClassifier`` (100 trees, class weighting).
-- ``SupportVectorMachine`` (RBF kernel, C=1.0, class weighting).
+- ``RandomForestClassifier`` (n_estimators=100, class_weight="balanced").
+- ``LogisticRegression`` (max_iter=2000, class_weight="balanced").
+- ``HistGradientBoostingClassifier`` (natively handles class imbalance).
+- ``SVC`` (RBF kernel, C=1.0, class_weight="balanced").
 
-Class weighting (``class_weight="balanced"``) is used where appropriate
-for the class-imbalanced AAMI annotations.
+Class weighting (``class_weight="balanced"``) is used where applicable
+for the class-imbalanced AAMI annotations; HistGB handles imbalance natively.
 """
 
 from __future__ import annotations
 
 from sklearn.dummy import DummyClassifier
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 
 
 def build_models(random_state: int = 42) -> dict[str, object]:
-    """Build the three classifiers (unfitted)."""
+    """Build the classifier zoo (unfitted).
+
+    Per the project spec, all primary evaluation is patient-independent
+    (patient-independent CV), and no model is selected by testing data.
+    """
     return {
         "dummy": DummyClassifier(strategy="most_frequent", random_state=random_state),
+        "logistic_regression": LogisticRegression(
+            max_iter=2000, class_weight="balanced", random_state=random_state
+        ),
         "random_forest": RandomForestClassifier(
             n_estimators=100, random_state=random_state, class_weight="balanced"
+        ),
+        "hist_gradient_boosting": HistGradientBoostingClassifier(
+            max_iter=100, random_state=random_state
         ),
         "svm_rbf": SVC(
             kernel="rbf", C=1.0, random_state=random_state, class_weight="balanced"
