@@ -107,6 +107,17 @@ were trained excluding the reserved records 118/119.)
 `expected_output.json` and `RUBRIC.md` — independently understandable, with
 synthetic fixtures (no proprietary raw data). `python grader.py` passes.
 
+Two additional self-contained benchmark tasks are provided (both synthetic,
+deterministic and graded on correctness, not just execution):
+
+- [`tasks/ecg_denoising_quality/`](tasks/ecg_denoising_quality/TASK.md) —
+  band-limited ECG denoising with SNR, morphology and R-peak timing checks.
+- [`tasks/arrhythmia_classification/`](tasks/arrhythmia_classification/TASK.md) —
+  patient-independent four-class beat classification with grouped OOF grading.
+
+Each contains `TASK.md`, `RUBRIC.md`, starter/reference solutions, a grader,
+expected output, a regeneration script and public + adversarial regression tests.
+
 ## Project structure
 
 ```

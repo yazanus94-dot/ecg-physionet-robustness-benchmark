@@ -1,0 +1,18 @@
+{
+  "fixture": {
+    "fs_hz": 360,
+    "generator": "reference_solution.make_fixture",
+    "n_r_peaks": 11,
+    "requested_input_snr_db": 0.0,
+    "seconds": 10,
+    "seed": 20261124
+  },
+  "metrics": {
+    "correlation": 0.9504,
+    "peak_f1": 1.0,
+    "snr_improvement_db": 8.5925,
+    "snr_input_db": -0.0,
+    "snr_output_db": 8.5925
+  },
+  "task": "ecg_denoising_quality"
+}
