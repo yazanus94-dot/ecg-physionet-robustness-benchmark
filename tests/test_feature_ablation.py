@@ -49,6 +49,21 @@ def test_ablation_columns_drop_variants():
     assert "skew" not in cols and "p95" not in cols
 
 
+def test_rf_selection_never_sees_validation_labels():
+    """Permuting held-out labels must not change the selected columns."""
+    rng = np.random.default_rng(7)
+    X = pd.DataFrame(rng.normal(size=(100, 20)))
+    y = np.array(["N", "S"] * 50)
+    train = np.arange(80)
+    validation = np.arange(80, 100)
+    original = ablation_columns("top12_by_rf_importance", X, y, train)
+    perturbed = y.copy()
+    perturbed[validation] = perturbed[validation][::-1]
+    assert not np.array_equal(perturbed[validation], y[validation])
+    changed = ablation_columns("top12_by_rf_importance", X, perturbed, train)
+    assert changed == original
+
+
 def test_ablation_columns_top12_by_rf_importance():
     rng = np.random.default_rng(0)
     X = pd.DataFrame(rng.normal(size=(100, 20)))

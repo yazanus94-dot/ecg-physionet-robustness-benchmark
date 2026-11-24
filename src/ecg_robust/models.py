@@ -4,11 +4,13 @@ Models (Phase 6 — stronger experimental comparison, no result manipulation):
 - ``DummyClassifier`` (most_frequent baseline, patient-independent).
 - ``RandomForestClassifier`` (n_estimators=100, class_weight="balanced").
 - ``LogisticRegression`` (max_iter=2000, class_weight="balanced").
-- ``HistGradientBoostingClassifier`` (natively handles class imbalance).
+- ``HistGradientBoostingClassifier`` (default ``class_weight=None``; included
+  as an unweighted comparator, not as an imbalance-handling model).
 - ``SVC`` (RBF kernel, C=1.0, class_weight="balanced").
 
 Class weighting (``class_weight="balanced"``) is used where applicable
-for the class-imbalanced AAMI annotations; HistGB handles imbalance natively.
+for the class-imbalanced AAMI annotations. HistGB deliberately uses the
+default ``class_weight=None`` so the zoo includes an unweighted comparator.
 """
 
 from __future__ import annotations

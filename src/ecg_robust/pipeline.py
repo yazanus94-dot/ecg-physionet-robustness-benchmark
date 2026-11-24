@@ -98,6 +98,22 @@ def _record_signal_and_fs(rec) -> tuple[np.ndarray, int]:
     return sig, int(rec.fs)
 
 
+def load_record_safely(rec_id: str, directory: Path) -> tuple[Any | None, str | None]:
+    """Load a recording, returning ``(None, reason)`` for incomplete downloads.
+
+    ``database_records`` discovers IDs from ``*.dat`` alone, so a truncated
+    record without a matching ``.hea``/``.atr`` would otherwise abort the run.
+    """
+    try:
+        rec, ann = load_ecg_record(rec_id, directory)
+        _sig, _fs = _record_signal_and_fs(rec)
+        if len(np.asarray(ann.sample)) != len(_symbol_list(ann)):
+            raise ValueError("annotation positions/symbols misaligned")
+        return (rec, ann), None
+    except (FileNotFoundError, ValueError, RuntimeError, OSError) as exc:
+        return None, str(exc)
+
+
 def _new_pipeline(model) -> Pipeline:
     """Scaler + median imputer fitted per fold inside the sklearn pipeline.
 
@@ -186,13 +202,18 @@ def main() -> int:
 
     fs: int | None = None  # sampling frequency (verified per record below)
     fs_values: set[int] = set()
+    skipped_records: list[str] = []
     for rec_id in records:
-        rec, ann = load_ecg_record(rec_id, MITDB_DIR)
-        sig, fs = _record_signal_and_fs(rec)
+        loaded, reason = load_record_safely(rec_id, MITDB_DIR)
+        if loaded is None:
+            # Report the skip explicitly, never fabricate data for the record.
+            skipped_records.append(rec_id)
+            print(f"    WARNING: skipping incomplete record {rec_id}: {reason}")
+            continue
+        rec, ann = loaded
+        sig, rec_fs = _record_signal_and_fs(rec)
+        fs = rec_fs
         fs_values.add(fs)
-        assert len(np.asarray(ann.sample)) == len(_symbol_list(ann)), (
-            f"record {rec_id}: annotation positions/symbols misaligned"
-        )
         sig_ch0 = sig[:, 0] if sig.ndim > 1 else sig
         sig_f = bandpass_filter(sig_ch0, fs)
         signal_by_record[rec_id] = (sig_ch0, sig_f)
@@ -589,6 +610,8 @@ def main() -> int:
         "mitdb": {
             "records": records,
             "n_records": len(records),
+            "skipped_incomplete_records": skipped_records,
+            "n_records_used": len(signal_by_record),
             "n_reserved_beats": n_reserved_total,
             "max_beats_per_class": MAX_BEATS_PER_CLASS,
             "total_beats_annotated": len(feature_rows),

@@ -200,7 +200,7 @@ python scripts/reproduce_pipeline.py
 - **Classifiers (spec Phase 6 — stronger experimental comparison):**
   DummyClassifier (most_frequent), LogisticRegression (C-balanced),
   RandomForest (n_estimators=100, class_weight="balanced"),
-  HistGradientBoosting (native imbalance handling), RBF-SVM
+  HistGradientBoosting (unweighted comparator), RBF-SVM
   (C=1.0, class_weight="balanced"). Primary CV results + model comparison
   in `reports/results/cv_metrics.csv`, `reports/results/class_weights_study.csv`,
   `reports/results/feature_ablation.csv`, `reports/results/hyperparameter_search.json`.
@@ -226,3 +226,22 @@ annotation/segment alignment is explicit (spec #1); primary metrics are
 out-of-fold (spec #2); NSTDB recorded-noise labels are alignment-aware
 (spec #3); noise is fair across classifiers (spec #4); annotation
 validation is enforced (spec #5).
+
+### Audit follow-ups and pending scientific decisions (2026-11-24)
+
+Fixed in this revision: RF feature selection in `scripts/feature_ablation.py`
+is now refit on each training fold only (the previously published
+`feature_ablation.csv` predates this fix and must be regenerated);
+incomplete `.dat` records are skipped with an explicit warning instead of
+aborting; HistGB is documented as unweighted rather than "natively handling"
+imbalance.
+
+Still requiring an explicit scientific decision before any result-changing
+edit: (1) the eight NSTDB noise realizations currently used are ECG+noise
+stress records from patients 118/119, not the pure-noise `bw`/`em`/`ma`
+records — switching them changes the robustness headline; (2) the "best
+model" is selected on the same folds used for its reported OOF table, so
+that comparison is optimistically biased and should be reported as selection
+diagnostics or moved to nested CV; (3) `configs/default.yaml` is descriptive
+only and is not read by the pipeline; (4) metric confidence intervals are not
+computed. These are reported rather than silently changed.

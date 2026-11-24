@@ -46,18 +46,28 @@ FEATURE_ABLATIONS: dict[str, object] = {
 }
 
 
-def ablation_columns(variant: str, X_all: pd.DataFrame, y_all: np.ndarray) -> list[str]:
-    """Columns to use for a given ablation variant."""
+def ablation_columns(
+    variant: str,
+    X_all: pd.DataFrame,
+    y_all: np.ndarray,
+    train_indices: np.ndarray | None = None,
+) -> list[str]:
+    """Columns to use for a given ablation variant.
+
+    When ``train_indices`` is supplied, RF-based selection sees ONLY those
+    rows. Feeding validation labels into feature selection leaks the held-out
+    fold into the ablation and inflates its cross-validated score.
+    """
     if variant == "full":
         return list(X_all.columns)
     fn = FEATURE_ABLATIONS[variant]
     if fn is not None:
         return fn(list(X_all.columns))
-    # top12_by_rf_importance: fit an RF (diagnostic) and keep the 12 most
-    # important features by default importance.
     from sklearn.ensemble import RandomForestClassifier
 
-    rf = RandomForestClassifier(n_estimators=200, random_state=42).fit(X_all, y_all)
+    X_fit = X_all if train_indices is None else X_all.iloc[train_indices]
+    y_fit = y_all if train_indices is None else y_all[train_indices]
+    rf = RandomForestClassifier(n_estimators=200, random_state=42).fit(X_fit, y_fit)
     order = np.argsort(-rf.feature_importances_)[:12]
     return [X_all.columns[i] for i in order]
 
@@ -81,11 +91,14 @@ def main() -> int:
     models = build_models()
     rows = []
     for variant in FEATURE_ABLATIONS:
-        cols = ablation_columns(variant, X_all, y_all)
-        X_var = X_all[cols]
+        n_features = len(ablation_columns(variant, X_all, y_all, folds[0][0]))
         for name, model in models.items():
             accs, f1s, bass = [], [], []
             for tr, va in folds:
+                # Selection is refit on the training fold only. The held-out
+                # labels never influence which columns are evaluated.
+                cols = ablation_columns(variant, X_all, y_all, tr)
+                X_var = X_all[cols]
                 a, f1, b = _fit_eval_accuracy(X_var, y_all, model, tr, va)
                 accs.append(a)
                 f1s.append(f1)
@@ -93,7 +106,7 @@ def main() -> int:
             rows.append(
                 {
                     "variant": variant,
-                    "n_features": len(cols),
+                    "n_features": n_features,
                     "model": name,
                     "accuracy_mean": float(np.mean(accs)),
                     "accuracy_std": float(np.std(accs)),
