@@ -16,7 +16,7 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install --upgrade pip setuptools wheel
       - run: python -m pip install -e .
-      - run: python -m pytest -q --deselect tests/test_dataset.py
+      - run: python -m pytest -q tests --deselect tests/test_dataset.py
       - name: Run expert benchmark task tests (tasks/ecg_arrhythmia_robustness)
         run: python -m pytest -q tasks/ecg_arrhythmia_robustness/tests
       - name: Run the reference grader

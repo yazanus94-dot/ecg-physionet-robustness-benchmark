@@ -29,6 +29,9 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.mypy]
 python_version = "3.11"
 warn_unused_ignores = false
