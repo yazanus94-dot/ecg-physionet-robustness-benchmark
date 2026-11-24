@@ -16,6 +16,14 @@ build/
 data/raw/
 data/features/
 
+# Local diagnostic scratch (logs, ad-hoc repro scripts, checksum dumps)
+/*.txt
+!/requirements.txt
+!/dev-requirements.txt
+check_repro.py
+gather_final.py
+checksums_run3.json
+
 # Editors / OS
 .vscode/
 .idea/
