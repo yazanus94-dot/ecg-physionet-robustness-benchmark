@@ -244,7 +244,7 @@ def main() -> int:
                 "inconsistent sampling frequencies across MITDB records: "
                 f"{sorted(fs_values)}"
             )
-        fs = fs_values.pop()
+        fs = min(fs_values)
     else:
         raise RuntimeError("no MITDB records found in the MITDB directory")
     print(f"      sampling frequency (verified from actual records): {fs} Hz")

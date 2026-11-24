@@ -39,7 +39,7 @@ def make_fixture() -> dict:
     rng = np.random.default_rng(20261119)
     t = np.arange(n) / fs
     x = 0.2 * np.sin(2 * np.pi * 60 * t) + 0.03 * rng.normal(size=n)
-    r_positions = [int(round((i + 0.2) * 0.75 * fs)) for i in range(8)]
+    r_positions = [round((i + 0.2) * 0.75 * fs) for i in range(8)]
     symbols = ["N", "S", "V", "F", "Q", "N", "S", "V"]
     return {"x": x, "fs": fs, "r_positions": r_positions, "symbols": symbols}
 
@@ -57,23 +57,29 @@ def process_record(x, fs, r_positions, symbols) -> pd.DataFrame:
     rr_seq = rr_features_for_valid_beats(valid_beats, fs)
     rows = []
     for beat, (rr_s, rr_r) in zip(valid_beats, rr_seq):
-        rows.append({
-            "index": beat.index,
-            "r_sample": beat.r_sample,
-            "symbol": beat.symbol,
-            "aami_class": beat.aami_class,
-            "status": beat.status,
-            **extract_features(beat.segment, fs, rr_s, rr_r),
-        })
+        rows.append(
+            {
+                "index": beat.index,
+                "r_sample": beat.r_sample,
+                "symbol": beat.symbol,
+                "aami_class": beat.aami_class,
+                "status": beat.status,
+                **extract_features(beat.segment, fs, rr_s, rr_r),
+            }
+        )
     return pd.DataFrame(rows)
 
 
 def solve_fixture(fixture: dict, model_name: str = "random_forest") -> dict:
     """Fit the model on the fixture beats and return outputs for the grader."""
     df = process_record(
-        fixture["x"], fixture["fs"], fixture["r_positions"], fixture["symbols"])
-    feat_cols = [c for c in df.columns
-                 if c not in ("index", "r_sample", "symbol", "aami_class", "status")]
+        fixture["x"], fixture["fs"], fixture["r_positions"], fixture["symbols"]
+    )
+    feat_cols = [
+        c
+        for c in df.columns
+        if c not in ("index", "r_sample", "symbol", "aami_class", "status")
+    ]
     mask = df["aami_class"].notna()
     X = df.loc[mask, feat_cols].copy()
     # Fill missing RR values (the first beat of a record has no preceding RR

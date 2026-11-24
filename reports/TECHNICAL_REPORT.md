@@ -1,8 +1,8 @@
 # ECG-ROBUST -- Technical Report: Patient-Independent ECG Arrhythmia Classification and Noise-Robustness Benchmark
 
 - Repository: `yazanus94-dot/ecg-physionet-robustness-benchmark`
-- Report date: 2026-11-20 13:30 UTC
-- Pipeline wall time (measured, including downloads): 358.6 s
+- Report date: 2026-11-20 16:15 UTC
+- Pipeline wall time (measured, including downloads): 411.2 s
 
 ## 1. Research Question
 

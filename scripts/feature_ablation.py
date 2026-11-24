@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.impute import SimpleImputer
 
 from ecg_robust.annotations import CLASSES
 from ecg_robust.evaluation import evaluate
@@ -22,17 +22,26 @@ from ecg_robust.visualization import plot_feature_ablation
 
 FEATURE_ABLATIONS: dict[str, object] = {
     "full": lambda cols: cols,
-    "drop_rr_features": lambda cols: [
-        c for c in cols if c not in ("rr_s", "rr_ratio")],
+    "drop_rr_features": lambda cols: [c for c in cols if c not in ("rr_s", "rr_ratio")],
     "drop_morphology": lambda cols: [
-        c for c in cols if c not in ("rise_time_s", "fall_time_s", "zero_crossings")],
+        c for c in cols if c not in ("rise_time_s", "fall_time_s", "zero_crossings")
+    ],
     "drop_spectral": lambda cols: [
-        c for c in cols
-        if c not in ("spectral_centroid", "spectral_flatness",
-                     "fft_peak_frequency", "fft_total_energy")],
+        c
+        for c in cols
+        if c
+        not in (
+            "spectral_centroid",
+            "spectral_flatness",
+            "fft_peak_frequency",
+            "fft_total_energy",
+        )
+    ],
     "drop_stats": lambda cols: [
-        c for c in cols
-        if c not in ("skew", "kurtosis") + tuple(f"p{p}" for p in (5, 25, 50, 75, 95))],
+        c
+        for c in cols
+        if c not in ("skew", "kurtosis") + tuple(f"p{p}" for p in (5, 25, 50, 75, 95))
+    ],
     "top12_by_rf_importance": None,  # special: rank by RF importance
 }
 
@@ -54,16 +63,17 @@ def ablation_columns(variant: str, X_all: pd.DataFrame, y_all: np.ndarray) -> li
 
 
 def _fit_eval_accuracy(X, y, model, tr, va) -> tuple[float, float, float]:
-    pipe = Pipeline([
-        ("imputer", SimpleImputer(strategy="median")),
-        ("scaler", StandardScaler()),
-        ("model", model),
-    ])
+    pipe = Pipeline(
+        [
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler()),
+            ("model", model),
+        ]
+    )
     pipe.fit(X.iloc[tr], y[tr])
     pred = np.asarray(pipe.predict(X.iloc[va]))
     m = evaluate(y[va], pred, CLASSES)
-    return (float(m["accuracy"]), float(m["f1_macro"]),
-            float(m["balanced_accuracy"]))
+    return (float(m["accuracy"]), float(m["f1_macro"]), float(m["balanced_accuracy"]))
 
 
 def main() -> int:
@@ -77,16 +87,20 @@ def main() -> int:
             accs, f1s, bass = [], [], []
             for tr, va in folds:
                 a, f1, b = _fit_eval_accuracy(X_var, y_all, model, tr, va)
-                accs.append(a); f1s.append(f1); bass.append(b)
-            rows.append({
-                "variant": variant,
-                "n_features": len(cols),
-                "model": name,
-                "accuracy_mean": float(np.mean(accs)),
-                "accuracy_std": float(np.std(accs)),
-                "f1_macro_mean": float(np.mean(f1s)),
-                "balanced_accuracy_mean": float(np.mean(bass)),
-            })
+                accs.append(a)
+                f1s.append(f1)
+                bass.append(b)
+            rows.append(
+                {
+                    "variant": variant,
+                    "n_features": len(cols),
+                    "model": name,
+                    "accuracy_mean": float(np.mean(accs)),
+                    "accuracy_std": float(np.std(accs)),
+                    "f1_macro_mean": float(np.mean(f1s)),
+                    "balanced_accuracy_mean": float(np.mean(bass)),
+                }
+            )
     df = pd.DataFrame(rows)
     out = "reports/results/feature_ablation.csv"
     df.to_csv(out, index=False)

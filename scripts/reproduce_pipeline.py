@@ -25,8 +25,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def run(cmd: list[str]) -> int:
     print(f"\n$ {' '.join(cmd)}\n", flush=True)
-    return subprocess.run(cmd, cwd=ROOT, env={**os.environ, "PYTHONPATH": "src"},
-                          check=False).returncode
+    return subprocess.run(
+        cmd, cwd=ROOT, env={**os.environ, "PYTHONPATH": "src"}, check=False
+    ).returncode
 
 
 def main() -> int:

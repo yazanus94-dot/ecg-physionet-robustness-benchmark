@@ -64,7 +64,9 @@
       "F": 803
     },
     "sampling_frequency_hz": 360,
-    "sampling_frequencies_hz": [],
+    "sampling_frequencies_hz": [
+      360
+    ],
     "nstdb": [
       "118e00",
       "118e06",

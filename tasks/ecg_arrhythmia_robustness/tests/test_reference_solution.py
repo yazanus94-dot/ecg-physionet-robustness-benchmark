@@ -9,7 +9,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
 from reference_solution import make_fixture, process_record, solve_fixture
 
 EXPECTED = Path(__file__).resolve().parents[1] / "expected_output.json"
@@ -31,16 +30,25 @@ def test_process_record_alignment():
         assert row["index"] == i
         assert row["r_sample"] == f["r_positions"][i]
         assert row["symbol"] == f["symbols"][i]
-        assert row["aami_class"] == {"N": "N", "S": "S", "V": "V", "F": "F", "Q": "Q"}[f["symbols"][i]]
+        assert (
+            row["aami_class"]
+            == {"N": "N", "S": "S", "V": "V", "F": "F", "Q": "Q"}[f["symbols"][i]]
+        )
         assert row["status"] == "mapped"
         assert np.isfinite(row["mean"])
         if i >= 1:
-            assert row["rr_s"] is not None and np.isclose(row["rr_s"], (f["r_positions"][i] - f["r_positions"][i - 1]) / f["fs"])
+            assert row["rr_s"] is not None and np.isclose(
+                row["rr_s"], (f["r_positions"][i] - f["r_positions"][i - 1]) / f["fs"]
+            )
         if i >= 2:
             assert row["rr_ratio"] is not None
         # core feature columns are finite for all beats
-        assert df[["mean", "std", "energy", "peak_amplitude",
-                   "spectral_centroid", "skew"]].notna().all().all()
+        assert (
+            df[["mean", "std", "energy", "peak_amplitude", "spectral_centroid", "skew"]]
+            .notna()
+            .all()
+            .all()
+        )
 
 
 def test_solve_fixture_deterministic():
@@ -53,13 +61,20 @@ def test_solve_fixture_deterministic():
 
 def test_solve_fixture_all_models_run():
     f = make_fixture()
-    for name in ["dummy", "logistic_regression", "random_forest",
-                 "hist_gradient_boosting", "svm_rbf"]:
+    for name in [
+        "dummy",
+        "logistic_regression",
+        "random_forest",
+        "hist_gradient_boosting",
+        "svm_rbf",
+    ]:
         out = solve_fixture(f, model_name=name)
         assert len(out["predictions"]) == len(out["beats"]) == 8
         assert out["metrics"]["accuracy"] >= 0.0
-        assert all(math.isfinite(out["metrics"][k]) for k in
-                   ["accuracy", "f1_macro", "f1_weighted", "balanced_accuracy"])
+        assert all(
+            math.isfinite(out["metrics"][k])
+            for k in ["accuracy", "f1_macro", "f1_weighted", "balanced_accuracy"]
+        )
 
 
 def test_expected_output_matches_solution():
