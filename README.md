@@ -245,6 +245,9 @@ validation is enforced (spec #5).
 
 ### Audit follow-ups and pending scientific decisions (2026-11-24)
 
+See [`reports/SCIENTIFIC_DECISIONS.md`](reports/SCIENTIFIC_DECISIONS.md) for the full register,
+including which committed result files are stale and the exact regeneration commands.
+
 Fixed in this revision: RF feature selection in `scripts/feature_ablation.py`
 is now refit on each training fold only (the previously published
 `feature_ablation.csv` predates this fix and must be regenerated);

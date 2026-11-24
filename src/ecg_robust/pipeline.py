@@ -35,6 +35,7 @@ from .annotations import (
     annotation_report,
     classify_annotations,
 )
+from .config import config_path_from_env, load_config
 from .dataset import (
     MITDB_DIR,
     NSTDB_DIR,
@@ -181,7 +182,10 @@ def load_experiment(
 
 def main() -> int:
     t_start = time.time()
-    rng_seed = 42
+    config = load_config(config_path_from_env())
+    rng_seed = config["random_state"]
+    n_splits = config["n_splits"]
+    print(f"      configuration: n_splits={n_splits}, seed={rng_seed}")
 
     print("[1/9] Downloading PhysioNet databases (MITDB + NSTDB)...")
     download_all()
@@ -330,7 +334,6 @@ def main() -> int:
             print(f"      warning: NSTDB record {rec_id} skipped: {e}")
     if nstdb_fs_values:
         print(f"      NSTDB sampling frequencies (actual): {sorted(nstdb_fs_values)}")
-    n_splits = 5
     folds = list(
         patient_splits(y_all, groups_all, n_splits=n_splits, random_state=rng_seed)
     )

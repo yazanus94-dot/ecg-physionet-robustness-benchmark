@@ -40,6 +40,7 @@ warn_unused_ignores = false
 module = [
     "sklearn.*",
     "wfdb",
+    "yaml",
 ]
 ignore_missing_imports = true
 
