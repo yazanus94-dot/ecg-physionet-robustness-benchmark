@@ -2,13 +2,14 @@
 
 | Criterion | Points | Full-credit evidence |
 |---|---:|---|
-| Patient-level split integrity | 20 | every fold reports disjoint train/test patient sets |
-| Leak-free preprocessing | 15 | imputation/scaling/model fit on training rows only; test labels unused |
-| Input validation | 15 | ValueError for empty, mismatched, single-class, unsupported-label and bad-group inputs |
-| Classification quality | 20 | balanced accuracy >= 0.80 and >= dummy + 0.15 |
-| Metric correctness | 10 | OOF aggregation, explicit label universe, macro/balanced definitions |
-| Determinism | 10 | repeated OOF runs give identical predictions |
-| Documentation | 10 | split design, class imbalance handling and synthetic framing explained |
+| Independently verified fold predictions | 25 | grader's per-fold `fit_predict` OOF equals submitted predictions |
+| Canonical fold metadata | 10 | `fold_groups` equals expected patient assignments |
+| Preprocessing boundaries | 15 | train-only fit; test rows cannot influence one another |
+| Input validation | 10 | ValueError for empty, mismatched, single-class, bad groups, wrong n_splits |
+| Classification quality | 20 | balanced accuracy >= 0.65, macro F1 >= 0.55, dummy margin >= 0.15 |
+| Metric honesty & determinism | 10 | reported metrics match recomputation; deterministic OOF |
+| Documentation | 10 | delegation contract, synthetic framing and evaluation protocol explained |
 
-Hard failures (leakage, schema violation, invalid-input handling) fail the grader regardless of
-score. The benchmark is synthetic and must not be reported as clinical validation.
+Hard failures (leakage, metadata fabrication, label leakage, incomplete OOF, fabricated metrics)
+fail the grader regardless of score. The fixture is synthetic and must not be reported as
+clinical validation or as a reproduce of MIT-BIH complexity.

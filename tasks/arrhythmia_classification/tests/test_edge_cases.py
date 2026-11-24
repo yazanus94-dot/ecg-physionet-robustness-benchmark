@@ -1,4 +1,4 @@
-"""Adversarial tests: invalid inputs, single-class folds and missing values."""
+"""Adversarial and edge-case tests for the classification task."""
 
 import numpy as np
 import pytest
@@ -36,15 +36,20 @@ def test_invalid_inputs_raise_value_error(case):
 
 
 def test_unsupported_label_raises():
-    frame = make_fixture()
-    X, y, g = _arrays(frame)
+    X, y, g = _arrays(make_fixture())
     y = y.copy()
     y[0] = "X"
     with pytest.raises(ValueError, match="unsupported"):
         patient_independent_oof(X, y, g)
 
 
-def test_nan_features_are_imputed_without_leakage():
+def test_wrong_n_splits_raises():
+    X, y, g = _arrays(make_fixture())
+    with pytest.raises(ValueError, match="n_splits"):
+        patient_independent_oof(X, y, g, n_splits=5)
+
+
+def test_nan_features_are_imputed():
     frame = make_fixture()
     X, y, g = _arrays(frame)
     train = g < "P006"
@@ -55,9 +60,13 @@ def test_nan_features_are_imputed_without_leakage():
     assert set(np.asarray(preds)) <= set(np.unique(y))
 
 
-def test_predictions_are_deterministic():
+def test_extreme_test_value_does_not_change_other_predictions():
     frame = make_fixture()
     X, y, g = _arrays(frame)
-    a = patient_independent_oof(X, y, g)
-    b = patient_independent_oof(X, y, g)
-    assert a["predictions"] == b["predictions"]
+    train = g < "P006"
+    test_idx = X.index[~train]
+    base = fit_predict(X[train], y[train], X.loc[test_idx])
+    perturbed = X.loc[test_idx].copy()
+    perturbed.iloc[0] = perturbed.iloc[0] + 10.0
+    altered = fit_predict(X[train], y[train], perturbed)
+    np.testing.assert_array_equal(np.asarray(base)[1:], np.asarray(altered)[1:])

@@ -2,59 +2,56 @@
 
 ## Problem
 
-Build a reproducible beat-level classifier for four AAMI classes (N, S, V, F) using only
-**subject-disjoint** folds. No recording or patient may appear in both training and test, and all
-preprocessing must be fitted on training rows only. This is a **synthetic** benchmark: the
-fixture encodes morphology patterns with subject-specific offsets; no PhysioNet records or hidden
-labels are used.
+Build a four-class (N, S, V, F) beat classifier validated with **patient-disjoint** folds. The
+**synthetic educational** fixture does not reproduce the full physiological complexity of
+MIT-BIH; no real dataset or hidden label is used.
 
-## Input / output schema
+## Contract
 
-`patient_independent_oof(features, labels, groups, n_splits=4) -> dict` with:
-- `features`: DataFrame with `rr_s`, `qrs_width_s`, `qrs_amp`, `spectral_centroid`;
-- `labels`: four-class string array;
-- `groups`: patient identifiers;
-- returns `predictions` (one label per row), `fold_groups` (`train`/`test` patient lists per fold),
-  `metrics` (`accuracy`, `balanced_accuracy`, `f1_macro`).
+- `fit_predict(train_features, train_labels, test_features) -> np.ndarray`
+  trains only on the supplied rows and returns one label per test row.
+- `patient_independent_oof(features, labels, groups, n_splits=4) -> dict`
+  must return `predictions` (one per row), `fold_groups` (canonical
+  `{"train": [...], "test": [...]}` per fold) and `metrics` recomputed from the OOF predictions.
+  It must **delegate each fold to `fit_predict`**.
 
-`fit_predict(train_features, train_labels, test_features) -> np.ndarray` trains on the supplied
-rows only and returns one label per test row. Invalid inputs (empty, length mismatch, unsupported
-labels, single-class training, bad group length) must raise `ValueError`.
+## Independent verification (not self-reported metadata)
 
-## Grading
+The grader regenerates folds with `StratifiedGroupKFold(n_splits=4, shuffle=True,
+random_state=42)`, verifies each sample appears in exactly one test fold, calls the candidate's
+`fit_predict` once per fold, assembles its own OOF predictions, and requires them to equal the
+submitted predictions exactly. `fold_groups` must match the canonical assignment. Reported
+metrics must match recomputed metrics. Additional checks: test-label independence, a
+preprocessing-boundary probe (changing one test row must not alter other test predictions),
+NaN imputation, determinism and invalid-input handling.
 
-`python grader.py path/to/candidate.py` verifies:
-1. output schema and allowed labels;
-2. every fold has disjoint train/test patient sets (checked against `StratifiedGroupKFold`);
-3. balanced accuracy >= 0.80 and >= dummy baseline + 0.15;
-4. determinism of repeated OOF runs;
-5. test label columns cannot influence predictions;
-6. invalid inputs raise `ValueError`; NaN features are imputed without failure;
-7. all metrics in `expected_output.json` reproduced within +/-0.03.
+## Fixture (harder than a trivial demo)
 
-Exit 0 only when every check passes.
+432 beats, 18 patients, 24 beats/patient. Distributions overlap across classes; patients have
+individual offsets; measurement noise, ~3% missing values, occasional corrupted values and a
+4:2:2:0.4 class imbalance are present. Seeded (`424242`). Reference and dummy metrics in
+`expected_output.json` are calibration evidence from actual runs.
 
-## Reference approach (technical explanation)
+## Acceptance thresholds (calibrated to the reference/dummy runs)
 
-`StratifiedGroupKFold(shuffle=True, random_state=42)` splits by patient while preserving class
-proportions. Each fold fits a fresh `Pipeline(SimpleImputer(median), StandardScaler,
-LogisticRegression(class_weight="balanced", max_iter=2000, random_state=42))` on training rows
-only. OOF predictions are aggregated before metric computation, so every row is scored exactly
-once by a model that never saw its patient. Class weighting addresses imbalance; the dummy
-comparison uses the same folds.
+- balanced accuracy >= **0.65**
+- macro F1 >= **0.55**
+- balanced accuracy >= dummy + **0.15**
 
 ## Reproduction
 
 ```bash
 python generate_expected_output.py
-python grader.py reference_solution.py # PASS
-python grader.py starter_solution.py   # FAIL
-python -m pytest -q tests
+python grader.py reference_solution.py   # PASS
+python grader.py starter_solution.py     # FAIL
+python -m pytest -q tests                # includes adversarial candidates
 ```
 
 ## Files
 
 `TASK.md`, `RUBRIC.md`, `starter_solution.py`, `reference_solution.py`, `grader.py`,
-`expected_output.json`, `generate_expected_output.py`, `tests/`.
+`expected_output.json`, `generate_expected_output.py`, `tests/`. `tests/candidates/` contains
+deliberately invalid solutions (all-rows training, fabricated metadata, constant predictor,
+label leakage, incomplete OOF, bad input handling, fabricated metrics) and a valid alternative.
 
-Synthetic benchmark evidence only — never clinical validation or challenge participation.
+Synthetic educational benchmark only — no clinical or challenge claim.

@@ -1,6 +1,16 @@
 {
+  "dummy_metrics": {
+    "accuracy": 0.5,
+    "balanced_accuracy": 0.25,
+    "f1_macro": 0.1667
+  },
   "fixture": {
-    "beats_per_patient": 20,
+    "class_distribution": {
+      "F": 18,
+      "N": 216,
+      "S": 108,
+      "V": 90
+    },
     "classes": [
       "N",
       "S",
@@ -8,13 +18,15 @@
       "F"
     ],
     "generator": "reference_solution.make_fixture",
-    "n_patients": 12,
+    "n_beats": 432,
+    "n_patients": 18,
     "seed": 424242
   },
   "metrics": {
-    "accuracy": 0.9958,
-    "balanced_accuracy": 0.9958,
-    "f1_macro": 0.9958
+    "accuracy": 0.7685,
+    "balanced_accuracy": 0.7745,
+    "f1_macro": 0.7015
   },
+  "note": "Synthetic educational benchmark. Reference and dummy metrics are calibration evidence.",
   "task": "arrhythmia_classification"
 }

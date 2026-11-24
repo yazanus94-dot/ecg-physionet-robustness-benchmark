@@ -1,18 +1,90 @@
 {
-  "fixture": {
-    "fs_hz": 360,
-    "generator": "reference_solution.make_fixture",
-    "n_r_peaks": 11,
-    "requested_input_snr_db": 0.0,
-    "seconds": 10,
-    "seed": 20261124
+  "aggregate": {
+    "mean_correlation": 0.9587,
+    "median_snr_gain_db": 4.1184,
+    "min_correlation": 0.9035,
+    "min_peak_f1": 0.875,
+    "n_scenarios": 7,
+    "weighted_peak_f1": 0.9868
   },
-  "metrics": {
-    "correlation": 0.9504,
-    "peak_f1": 1.0,
-    "snr_improvement_db": 8.5925,
-    "snr_input_db": -0.0,
-    "snr_output_db": 8.5925
+  "fixtures": {
+    "generator": "reference_solution.make_fixture",
+    "scenarios": [
+      "baseline_wander",
+      "powerline_50hz",
+      "broadband_low_snr",
+      "high_snr",
+      "short_recording",
+      "low_sampling_rate",
+      "boundary_peaks"
+    ],
+    "seed_base": 20261124
+  },
+  "note": "Reference metrics only; alternative valid methods may differ.",
+  "scenarios": {
+    "baseline_wander": {
+      "correlation": 0.9673,
+      "n_samples": 4320,
+      "peak_f1": 1.0,
+      "requested_snr_db": 4.0,
+      "snr_gain_db": 5.238,
+      "snr_input_db": 4.0,
+      "snr_output_db": 9.238
+    },
+    "boundary_peaks": {
+      "correlation": 0.9716,
+      "n_samples": 2160,
+      "peak_f1": 0.875,
+      "requested_snr_db": 5.0,
+      "snr_gain_db": 3.0142,
+      "snr_input_db": 5.0,
+      "snr_output_db": 8.0142
+    },
+    "broadband_low_snr": {
+      "correlation": 0.9035,
+      "n_samples": 3240,
+      "peak_f1": 1.0,
+      "requested_snr_db": 1.5,
+      "snr_gain_db": 4.4214,
+      "snr_input_db": 1.5,
+      "snr_output_db": 5.9214
+    },
+    "high_snr": {
+      "correlation": 0.9737,
+      "n_samples": 3600,
+      "peak_f1": 1.0,
+      "requested_snr_db": 12.0,
+      "snr_gain_db": -3.7953,
+      "snr_input_db": 12.0,
+      "snr_output_db": 8.2047
+    },
+    "low_sampling_rate": {
+      "correlation": 0.9689,
+      "n_samples": 2500,
+      "peak_f1": 1.0,
+      "requested_snr_db": 5.0,
+      "snr_gain_db": 4.1786,
+      "snr_input_db": 5.0,
+      "snr_output_db": 9.1786
+    },
+    "powerline_50hz": {
+      "correlation": 0.9733,
+      "n_samples": 3600,
+      "peak_f1": 1.0,
+      "requested_snr_db": 4.0,
+      "snr_gain_db": 4.1184,
+      "snr_input_db": 4.0,
+      "snr_output_db": 8.1184
+    },
+    "short_recording": {
+      "correlation": 0.9529,
+      "n_samples": 1080,
+      "peak_f1": 1.0,
+      "requested_snr_db": 6.0,
+      "snr_gain_db": 2.9483,
+      "snr_input_db": 6.0,
+      "snr_output_db": 8.9483
+    }
   },
   "task": "ecg_denoising_quality"
 }

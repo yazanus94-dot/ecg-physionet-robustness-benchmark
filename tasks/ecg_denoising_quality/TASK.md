@@ -2,62 +2,66 @@
 
 ## Problem
 
-Given a single-lead ECG corrupted by baseline wander, 50 Hz powerline interference and
-additive noise, produce a denoised signal that preserves diagnostic morphology and R-peak
-timing. This is a **synthetic, self-contained** benchmark: no PhysioNet data, hidden labels or
-network access is used by the grader.
+Given a single-lead ECG corrupted by baseline wander, powerline interference and broadband
+noise, return a denoised signal that preserves diagnostic morphology and R-peak timing.
+Self-contained and **synthetic**; no PhysioNet data, hidden labels or network access is used.
 
-## Input / output schema
+The grader is **algorithm-independent**: it does not compare your waveform to the reference
+filter. Any scientifically defensible method is accepted if it meets the quality criteria.
 
-- Input: `denoise(signal: np.ndarray, fs: float) -> np.ndarray`
-  - `signal`: non-empty 1-D finite array of samples in mV-like units.
-  - `fs`: positive finite sampling rate in Hz.
-- Output: 1-D finite `np.ndarray` with the **same length** as the input.
+## Input / output
 
-Invalid inputs (empty, 2-D, non-finite, non-positive `fs`, too short for the filter) must raise
-`ValueError`. No silent truncation, interpolation or sample invention is allowed.
+`denoise(signal: np.ndarray, fs: float) -> np.ndarray`
+- non-empty 1-D finite samples, same output length as input;
+- invalid inputs (empty, 2-D, NaN/Inf, non-positive `fs`, too short) must raise `ValueError`;
+- deterministic, numerically stable on extreme impulses, no silent truncation.
 
-## Deterministic fixture
+## Deterministic scenarios
 
-`reference_solution.make_fixture()` generates a 10 s, 360 Hz synthetic ECG (seed 20261124)
-with 11 annotated R peaks. The noisy mixture is scaled to 0 dB input SNR; its corruption is
-mostly out-of-band (0.15 Hz wander + 50 Hz interference + small in-band white noise).
+`make_fixture(scenario)` / `make_scenarios()` provide seven seeded fixtures:
 
-## Grading
+| Scenario | Corruption / boundary |
+|---|---|
+| `baseline_wander` | strong 0.17 Hz wander + small broadband noise |
+| `powerline_50hz` | wander + 50 Hz line + broadband noise (fs 360) |
+| `broadband_low_snr` | low input SNR (1.5 dB), mostly in-band noise |
+| `high_snr` | 12 dB input SNR; filtering can *reduce* measured SNR |
+| `short_recording` | 3 s recording |
+| `low_sampling_rate` | fs 250 Hz, line interference below Nyquist |
+| `boundary_peaks` | R peaks close to recording boundaries |
 
-`python grader.py path/to/candidate.py` checks, in order:
+Two ECG morphologies (A/B), different SNRs, short/long signals and near-filter-boundary cases
+are included. Clean synthetic signals are the ground truth. Some scenarios do not improve every
+individual metric — this is intentional and handled by the aggregate rule below.
 
-1. schema — output exists, 1-D, same length, finite;
-2. quality — SNR improvement >= 4 dB, correlation with clean >= 0.90, R-peak F1 >= 0.85
-   (150 ms tolerance) using a documented threshold detector;
-3. correctness — agreement with the reference filter within `rtol=1e-6, atol=1e-8`;
-4. determinism — identical calls return bitwise-identical output;
-5. adversarial — empty, 2-D, NaN/Inf, bad `fs`, too-short, amplitude scaling, impulse stability;
-6. expected metrics — all values in `expected_output.json` within +/-0.02.
+## Aggregate evaluation (documented formula)
 
-The grader exits 0 only if every check passes. It tests signal correctness, not just execution.
+For each scenario the grader computes SNR gain (`SNR_out - SNR_in`), Pearson correlation with
+clean, and one-to-one R-peak F1 (150 ms tolerance, closest-first greedy matching, each
+detection/reference used once). It then requires:
 
-## Reference approach (technical explanation)
+- median SNR gain >= **1.5 dB**
+- mean correlation >= **0.85**
+- length-weighted peak F1 >= **0.80**
+- no single scenario with correlation < **0.55** or peak F1 < **0.55**
 
-A 4th-order Butterworth bandpass (0.5–40 Hz) is designed as second-order sections and applied
-with `scipy.signal.sosfiltfilt`, giving zero phase so R peaks are not time-shifted. The padding
-requirement `3 * (2 * n_sections + 1)` is checked explicitly before filtering; short signals
-raise rather than relying on SciPy's internal error. SOS avoids the numerical instability of
-transfer-function coefficients at low normalized cutoffs. The filter is linear, so doubling the
-input doubles the output, and deterministic because it uses no randomness.
+Shape, finiteness, determinism, invalid-input handling and extreme-value stability are hard
+checks. `expected_output.json` records the reference's metrics **for transparency only**; they
+are not universal acceptance thresholds.
 
 ## Reproduction
 
 ```bash
-python generate_expected_output.py     # regenerate expected_output.json
-python grader.py reference_solution.py # PASS
-python grader.py starter_solution.py   # FAIL (NotImplementedError)
-python -m pytest -q tests
+python generate_expected_output.py
+python grader.py reference_solution.py      # PASS
+python grader.py starter_solution.py        # FAIL
+python -m pytest -q tests                   # includes alternative + adversarial candidates
 ```
 
 ## Files
 
 `TASK.md`, `RUBRIC.md`, `starter_solution.py`, `reference_solution.py`, `grader.py`,
-`expected_output.json`, `generate_expected_output.py`, `tests/`.
+`expected_output.json`, `generate_expected_output.py`, `tests/` (including
+`tests/candidates/` with valid-alternative, passthrough and morphology-damaging solutions).
 
-Results are synthetic benchmark evidence only — never clinical validation.
+Synthetic benchmark evidence only — never clinical validation.

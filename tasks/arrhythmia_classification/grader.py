@@ -1,7 +1,11 @@
-"""Automated grader for the patient-independent arrhythmia benchmark task.
+"""Automated grader for the patient-independent arrhythmia benchmark.
 
 Usage:
     python grader.py [path/to/candidate.py]
+
+The grader regenerates the canonical folds itself and calls the candidate's
+``fit_predict`` once per fold. It never trusts self-reported fold metadata as
+proof of patient independence.
 """
 
 from __future__ import annotations
@@ -13,12 +17,20 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from reference_solution import CLASSES, FEATURE_COLUMNS, make_fixture
+from reference_solution import (
+    CLASSES,
+    FEATURE_COLUMNS,
+    N_SPLITS,
+    compute_metrics,
+    expected_folds,
+    make_fixture,
+)
 from sklearn.dummy import DummyClassifier
-from sklearn.metrics import accuracy_score, balanced_accuracy_score, f1_score
-from sklearn.model_selection import StratifiedGroupKFold
 
 HERE = Path(__file__).resolve().parent
+MIN_BALANCED_ACCURACY = 0.65
+MIN_F1_MACRO = 0.55
+MIN_DUMMY_MARGIN = 0.15
 
 
 def _load_candidate(path: Path) -> Any:
@@ -34,16 +46,47 @@ def _check(name: str, ok: bool, detail: str, results: dict) -> None:
     results[name] = {"passed": bool(ok), "detail": detail}
 
 
+def _as_strings(predictions: Any) -> np.ndarray:
+    return np.asarray(predictions, dtype=str).reshape(-1)
+
+
 def grade(candidate_path: Path) -> dict:
     candidate = _load_candidate(candidate_path)
+    results: dict[str, dict] = {}
+    if not hasattr(candidate, "patient_independent_oof") or not hasattr(
+        candidate, "fit_predict"
+    ):
+        _check(
+            "interface", False, "candidate must expose both required functions", results
+        )
+        return {"checks": results, "metrics": {}, "passed": False}
+    _check("interface", True, "both required functions present", results)
+
     frame = make_fixture()
     features = frame[list(FEATURE_COLUMNS)]
     labels = frame["label"].to_numpy()
     groups = frame["patient_id"].to_numpy()
-    results: dict[str, dict] = {}
+    folds = expected_folds(groups, labels)
+
+    # Independent fold sanity checks.
+    test_indices = [idx for _, test_idx in folds for idx in test_idx]
+    _check(
+        "every_sample_once",
+        sorted(test_indices) == list(range(len(frame))),
+        "each sample appears in exactly one held-out fold",
+        results,
+    )
+    no_overlap = all(not (set(groups[tr]) & set(groups[va])) for tr, va in folds)
+    _check(
+        "canonical_folds_patient_disjoint",
+        no_overlap,
+        "canonical folds contain no patient in both train and test",
+        results,
+    )
+    _check("n_folds", len(folds) == N_SPLITS, f"expected {N_SPLITS} folds", results)
 
     try:
-        result = candidate.patient_independent_oof(features, labels, groups)
+        submitted = candidate.patient_independent_oof(features, labels, groups)
     except Exception as exc:  # noqa: BLE001
         _check(
             "runs",
@@ -52,105 +95,173 @@ def grade(candidate_path: Path) -> dict:
             results,
         )
         return {"checks": results, "metrics": {}, "passed": False}
-    _check("runs", True, "grouped OOF returned", results)
+    _check("runs", True, "patient_independent_oof returned", results)
 
-    predictions = np.asarray(result.get("predictions", []), dtype=str)
+    submitted_predictions = _as_strings(submitted.get("predictions", []))
     _check(
         "prediction_length",
-        len(predictions) == len(frame),
-        f"expected {len(frame)}, got {len(predictions)}",
+        len(submitted_predictions) == len(frame),
+        f"expected {len(frame)}, got {len(submitted_predictions)}",
         results,
     )
     _check(
         "valid_labels",
-        bool(set(predictions) <= set(CLASSES)),
-        f"unexpected labels: {sorted(set(predictions) - set(CLASSES))}",
+        bool(set(submitted_predictions) <= set(CLASSES)),
+        "all predictions use supported AAMI labels",
         results,
     )
 
-    metrics = (
-        {
-            "accuracy": round(float(accuracy_score(labels, predictions)), 4),
-            "balanced_accuracy": round(
-                float(balanced_accuracy_score(labels, predictions)), 4
-            ),
-            "f1_macro": round(
-                float(
-                    f1_score(
-                        labels,
-                        predictions,
-                        labels=list(CLASSES),
-                        average="macro",
-                        zero_division=0,
-                    )
-                ),
-                4,
-            ),
-        }
-        if len(predictions) == len(frame)
-        else {}
-    )
+    # Independently assemble OOF predictions by calling the candidate per fold.
+    independent = np.empty(len(frame), dtype=object)
+    independent_ok = True
+    for train_idx, test_idx in folds:
+        try:
+            independent[test_idx] = candidate.fit_predict(
+                features.iloc[train_idx], labels[train_idx], features.iloc[test_idx]
+            )
+        except Exception as exc:  # noqa: BLE001
+            independent_ok = False
+            _check(
+                f"fold_predict_{len(independent[test_idx])}",
+                False,
+                f"fit_predict raised {type(exc).__name__}: {exc}",
+                results,
+            )
+            break
+    if independent_ok:
+        independent = _as_strings(independent)
+        _check(
+            "predictions_from_disjoint_folds",
+            bool(np.array_equal(independent, submitted_predictions)),
+            "submitted OOF matches predictions produced from canonical patient-disjoint folds",
+            results,
+        )
 
-    splitter = StratifiedGroupKFold(n_splits=4, shuffle=True, random_state=42)
-    expected_folds = list(splitter.split(features, labels, groups))
-    fold_groups = result.get("fold_groups", [])
-    overlap_free = len(fold_groups) == len(expected_folds)
-    if overlap_free:
-        for fold in fold_groups:
-            if set(fold["train"]) & set(fold["test"]):
-                overlap_free = False
-    _check(
-        "patient_independence",
-        overlap_free,
-        "every fold reports disjoint train/test patient sets",
-        results,
-    )
+        expected_groups = [
+            {
+                "train": sorted(set(groups[tr])),
+                "test": sorted(set(groups[va])),
+            }
+            for tr, va in folds
+        ]
+        _check(
+            "fold_metadata_exact",
+            submitted.get("fold_groups") == expected_groups,
+            "reported fold_groups equal the canonical fold assignments",
+            results,
+        )
 
-    # Dummy baseline on the same grouped folds.
+        metrics = compute_metrics(labels, independent)
+    else:
+        metrics = {}
+
+    # Dummy baseline on the same folds.
     dummy_pred = np.empty(len(frame), dtype=object)
-    for train_idx, test_idx in expected_folds:
+    for train_idx, test_idx in folds:
         dummy = DummyClassifier(strategy="most_frequent").fit(
             features.iloc[train_idx], labels[train_idx]
         )
         dummy_pred[test_idx] = dummy.predict(features.iloc[test_idx])
-    baseline = balanced_accuracy_score(labels, np.asarray(dummy_pred, dtype=str))
-    _check(
-        "beats_dummy",
-        metrics.get("balanced_accuracy", 0) >= baseline + 0.15,
-        f"model {metrics.get('balanced_accuracy')} vs dummy {baseline:.4f}",
-        results,
-    )
-    _check(
-        "balanced_accuracy",
-        metrics.get("balanced_accuracy", 0) >= 0.80,
-        f"got {metrics.get('balanced_accuracy')}",
-        results,
-    )
+    dummy_metrics = compute_metrics(labels, _as_strings(dummy_pred))
 
+    if metrics:
+        _check(
+            "balanced_accuracy",
+            metrics["balanced_accuracy"] >= MIN_BALANCED_ACCURACY,
+            f"got {metrics['balanced_accuracy']}, need >= {MIN_BALANCED_ACCURACY}",
+            results,
+        )
+        _check(
+            "f1_macro",
+            metrics["f1_macro"] >= MIN_F1_MACRO,
+            f"got {metrics['f1_macro']}, need >= {MIN_F1_MACRO}",
+            results,
+        )
+        _check(
+            "beats_dummy",
+            metrics["balanced_accuracy"]
+            >= dummy_metrics["balanced_accuracy"] + MIN_DUMMY_MARGIN,
+            f"model {metrics['balanced_accuracy']}, dummy {dummy_metrics['balanced_accuracy']}",
+            results,
+        )
+
+    # Reported metrics must match independently recomputed metrics.
+    reported = submitted.get("metrics", {})
+    if metrics and isinstance(reported, dict):
+        consistent = all(
+            abs(float(reported.get(key, -1)) - value) <= 0.02
+            for key, value in metrics.items()
+        )
+        _check(
+            "metrics_not_fabricated",
+            consistent,
+            "reported metrics match recomputed OOF metrics",
+            results,
+        )
+    else:
+        _check("metrics_not_fabricated", False, "metrics missing", results)
+
+    # Determinism.
     second = candidate.patient_independent_oof(features, labels, groups)
     _check(
         "determinism",
-        second.get("predictions") == result.get("predictions"),
+        bool(
+            np.array_equal(
+                _as_strings(second.get("predictions", [])), submitted_predictions
+            )
+        ),
         "two identical calls give identical predictions",
         results,
     )
 
-    # Adversarial: shuffled test labels must not change fit_predict output.
-    train_idx, test_idx = expected_folds[0]
-    pred_a = candidate.fit_predict(
-        features.iloc[train_idx], labels[train_idx], features.iloc[test_idx]
-    )
-    shuffled_test = features.iloc[test_idx].copy()
-    shuffled_test["label"] = np.random.default_rng(0).permutation(labels[test_idx])
-    pred_b = candidate.fit_predict(
-        features.iloc[train_idx], labels[train_idx], shuffled_test
-    )
-    _check(
-        "test_labels_unused",
-        bool(np.array_equal(np.asarray(pred_a), np.asarray(pred_b))),
-        "test label column cannot influence predictions",
-        results,
-    )
+    # Test-label leakage: a label column in test features cannot be used.
+    train_idx, test_idx = folds[0]
+    test_with_labels = features.iloc[test_idx].copy()
+    test_with_labels["label"] = np.random.default_rng(0).permutation(labels[test_idx])
+    try:
+        pred_a = _as_strings(
+            candidate.fit_predict(
+                features.iloc[train_idx], labels[train_idx], features.iloc[test_idx]
+            )
+        )
+        pred_b = _as_strings(
+            candidate.fit_predict(
+                features.iloc[train_idx], labels[train_idx], test_with_labels
+            )
+        )
+        _check(
+            "test_labels_unused",
+            bool(np.array_equal(pred_a, pred_b)),
+            "adding a permuted test label column does not change predictions",
+            results,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _check("test_labels_unused", False, f"raised {type(exc).__name__}", results)
+
+    # Preprocessing boundary: one test row must not affect other test rows.
+    changed = features.iloc[test_idx].copy()
+    perturbed = changed.copy()
+    perturbed.iloc[0] = perturbed.iloc[0] + 5.0
+    try:
+        base = _as_strings(
+            candidate.fit_predict(features.iloc[train_idx], labels[train_idx], changed)
+        )
+        altered = _as_strings(
+            candidate.fit_predict(
+                features.iloc[train_idx], labels[train_idx], perturbed
+            )
+        )
+        others = np.arange(1, len(base))
+        _check(
+            "preprocessing_train_only",
+            bool(np.array_equal(base[others], altered[others])),
+            "changing one test row does not change other test predictions",
+            results,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _check(
+            "preprocessing_train_only", False, f"raised {type(exc).__name__}", results
+        )
 
     bad_cases = {
         "empty": (features.iloc[:0], labels[:0], groups[:0]),
@@ -184,24 +295,28 @@ def grade(candidate_path: Path) -> dict:
         )
         _check(
             "nan_imputation",
-            len(nan_pred) == len(test_idx),
-            "NaN features imputed",
+            len(_as_strings(nan_pred)) == len(test_idx),
+            "NaN features imputed without failure",
             results,
         )
     except Exception as exc:  # noqa: BLE001
         _check("nan_imputation", False, f"raised {type(exc).__name__}", results)
 
     expected = json.loads((HERE / "expected_output.json").read_text(encoding="utf-8"))
-    for key, target in expected["metrics"].items():
-        _check(
-            f"expected_{key}",
-            abs(metrics.get(key, -1) - target) <= 0.03,
-            f"got {metrics.get(key)}, expected {target} +/- 0.03",
-            results,
-        )
+    _check(
+        "expected_output_present",
+        bool(expected.get("metrics")),
+        "reference metrics recorded as calibration evidence",
+        results,
+    )
 
     passed = all(item["passed"] for item in results.values())
-    return {"checks": results, "metrics": metrics, "passed": passed}
+    return {
+        "checks": results,
+        "metrics": metrics,
+        "dummy_metrics": dummy_metrics,
+        "passed": passed,
+    }
 
 
 def main() -> int:
